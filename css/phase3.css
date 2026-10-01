@@ -27,3 +27,7 @@ body.phase3:before{content:"";position:fixed;inset:0;pointer-events:none;opacity
 .p3-progress{display:grid;align-content:center;gap:7px}.p3-progress-row{display:flex;justify-content:space-between;align-items:center;font:800 11px ui-monospace;letter-spacing:.08em}.p3-progress-row>div{display:grid;grid-template-columns:30px 42px 30px;gap:5px;align-items:center}.p3-progress-row b{text-align:center;font-size:18px}
 .p3-stat{display:block;padding:8px}.p3-stat-roll{width:100%;display:grid;grid-template-columns:48px 1fr 52px;align-items:center;gap:8px;padding:4px 2px 8px;background:transparent!important;border:0!important;text-align:left;box-shadow:none!important}.p3-stat-roll:hover{transform:none}.p3-stat-allocate{display:grid;grid-template-columns:34px 1fr 34px;gap:6px;align-items:center;border-top:1px solid #481210;padding-top:7px}.p3-stat-allocate span{text-align:center;font:900 15px ui-monospace;color:#c8cdd2}.p3-stat-allocate button:disabled{opacity:.25;cursor:not-allowed}
 @media(max-width:900px){.p3-stat{display:block}.p3-stat-roll{display:block;text-align:center}.p3-stat-roll .p3-stat-mod{text-align:center}.p3-stat-allocate{grid-template-columns:28px 1fr 28px}.p3-stat-allocate button{min-width:26px;padding:4px}}
+
+/* Phase 3.0.2 cleanup controls */
+.phase3 button.danger{background:#130909;border:1px solid #6d2421;color:#e57b75;font:800 10px ui-monospace;letter-spacing:.06em}
+.phase3 button.danger:hover{background:#32100e;border-color:#d63832;color:#fff;box-shadow:0 0 16px #d6383235}
