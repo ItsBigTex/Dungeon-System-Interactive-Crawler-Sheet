@@ -31,3 +31,17 @@ body.phase3:before{content:"";position:fixed;inset:0;pointer-events:none;opacity
 /* Phase 3.0.2 cleanup controls */
 .phase3 button.danger{background:#130909;border:1px solid #6d2421;color:#e57b75;font:800 10px ui-monospace;letter-spacing:.06em}
 .phase3 button.danger:hover{background:#32100e;border-color:#d63832;color:#fff;box-shadow:0 0 16px #d6383235}
+
+/* Phase 3.1 RAW HUD */
+.p31-healthbar{display:grid;grid-template-columns:repeat(10,1fr);gap:3px;margin:10px 0}
+.p31-healthbar i{height:22px;border:1px solid #4c1d1b;background:#140807;transform:skew(-5deg)}
+.p31-healthbar i.filled{background:linear-gradient(180deg,#e0473f,#7e1e1a);box-shadow:0 0 10px #d6383245}
+.p31-rulegrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}
+.p31-rulegrid>div,.p31-hotslot,.p31-gearslot{border:1px solid #4d1715;box-shadow:inset 0 0 0 1px #090909;background:#0b0d10;padding:12px;border-radius:6px}
+.p31-rulegrid b,.p31-rulegrid small{display:block;margin-top:6px}.p31-hotlist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.p31-hotslot{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center}.p31-hotslot .tag{grid-column:1/-1}
+.p31-paperdoll{display:grid;grid-template-columns:1fr 180px 1fr;gap:12px;align-items:center;margin:18px 0}.p31-paperdoll>div:not(.p31-body){display:grid;gap:9px}
+.p31-body{min-height:390px;display:grid;place-items:center;text-align:center;border:1px solid #6d2421;background:radial-gradient(circle,#2a1010,#0b0d10 65%);font:900 22px ui-monospace;letter-spacing:.08em;clip-path:polygon(28% 0,72% 0,80% 13%,92% 20%,83% 45%,76% 42%,80% 100%,20% 100%,24% 42%,17% 45%,8% 20%,20% 13%)}
+.p31-body span{font-size:10px;color:#8c949d}.p31-gearslot b{display:block;margin:7px 0}.p31-accessories{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.phase3 details{border:1px solid #34100f;margin:10px 0;padding:8px;background:#0a0c0f}.phase3 summary{cursor:pointer;padding:6px;color:#d9dde1}
+@media(max-width:700px){.p31-rulegrid,.p31-hotlist,.p31-accessories{grid-template-columns:1fr}.p31-paperdoll{grid-template-columns:1fr}.p31-body{min-height:180px;order:-1}}
