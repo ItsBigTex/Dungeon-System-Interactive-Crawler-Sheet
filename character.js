@@ -48,9 +48,6 @@
    partyMessages=await DSCloud.partyMessages(100);
    partyMessageChannel=DSCloud.subscribePartyMessages(row=>{
      partyMessages.unshift(row);
-     if(String(row.sender_crawler_id)!==String(c.id)){
-       queueSystemNotification('PARTY MESSAGE',row.sender_name||'PARTY',row.text||'',{presentation:'banner',priority:'normal',acknowledgement_required:false});
-     }
      if(tab==='comms')renderView();
    })
  }catch(e){console.warn('Party comms unavailable (run Phase 3.7 migration):',e.message)}}
