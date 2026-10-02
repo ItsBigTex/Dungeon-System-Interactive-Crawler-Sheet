@@ -59,3 +59,9 @@ body .p31-healthbar i.filled{transition:opacity .2s,filter .2s}
 #eventPopup[data-presentation="banner"] .popupbox p{margin:0 0 8px}
 
 #eventPopup[data-presentation="banner"] #eventAck{position:relative;z-index:10002;pointer-events:auto}
+
+/* Phase 3.7.4: notification interaction hardening */
+#eventPopup[data-presentation="banner"]{pointer-events:auto!important;z-index:11050!important}
+#eventPopup[data-presentation="banner"] .popupbox,
+#eventPopup[data-presentation="banner"] #eventAck{pointer-events:auto!important}
+#eventPopup[data-presentation="banner"] #eventAck{cursor:pointer!important}

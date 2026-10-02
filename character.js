@@ -59,7 +59,38 @@
  let notificationQueue=[],notificationShowing=false,seenSystemEvents=new Set(),systemEventChannel=null;
  function queueSystemNotification(kind,title,body='',meta={}){notificationQueue.push({kind,title,body,...meta});showNextNotification()}
  function eventLabel(type){return ({achievement:'NEW ACHIEVEMENT!',quest_received:'NEW QUEST!',quest_updated:'QUEST UPDATED!',quest_completed:'QUEST COMPLETE!',quest_failed:'QUEST FAILED!',loot_box_received:'LOOT BOX RECEIVED!',system_announcement:'SYSTEM ANNOUNCEMENT',private_message:'SYSTEM MESSAGE',level_gained:'LEVEL GAINED!',floor_changed:'FLOOR UPDATE',health_warning:'HEALTH WARNING',mana_warning:'MANA WARNING',item_received:'ITEM RECEIVED!'})[type]||'SYSTEM NOTIFICATION'}
- async function showNextNotification(){if(notificationShowing||!notificationQueue.length)return;const n=notificationQueue.shift(),pop=document.querySelector('#eventPopup'),kind=document.querySelector('#eventKind'),title=document.querySelector('#eventTitle'),body=document.querySelector('#eventBody'),ack=document.querySelector('#eventAck');if(!pop||!kind||!title||!body||!ack){notificationQueue.unshift(n);return}notificationShowing=true;pop.dataset.priority=n.priority||'normal';pop.dataset.presentation=n.presentation||'popup';kind.textContent=n.kind;title.textContent=n.title;body.textContent=n.body||'';pop.classList.remove('hidden');ack.textContent=n.acknowledgement_required===false?'DISMISS':'ACKNOWLEDGE';ack.onclick=async()=>{ack.disabled=true;try{if(n.event_id&&n.acknowledgement_required!==false)await DSCloud.acknowledgeSystemEvent(n.event_id);pop.classList.add('hidden');notificationShowing=false;ack.disabled=false;showNextNotification()}catch(e){ack.disabled=false;alert('System event acknowledgement failed: '+e.message)}}}
+ async function dismissCurrentNotification(n,pop,ack){
+   if(!notificationShowing)return;
+   ack.disabled=true;
+   try{
+     if(n?.event_id&&n.acknowledgement_required!==false)await DSCloud.acknowledgeSystemEvent(n.event_id);
+   }catch(e){
+     ack.disabled=false;
+     alert('System event acknowledgement failed: '+e.message);
+     return;
+   }
+   pop.classList.add('hidden');
+   notificationShowing=false;
+   ack.disabled=false;
+   showNextNotification();
+ }
+ async function showNextNotification(){
+   if(notificationShowing||!notificationQueue.length)return;
+   const n=notificationQueue.shift(),pop=document.querySelector('#eventPopup'),kind=document.querySelector('#eventKind'),title=document.querySelector('#eventTitle'),body=document.querySelector('#eventBody'),ack=document.querySelector('#eventAck');
+   if(!pop||!kind||!title||!body||!ack){notificationQueue.unshift(n);return}
+   notificationShowing=true;
+   pop._descentNotification=n;
+   pop.dataset.priority=n.priority||'normal';
+   pop.dataset.presentation=n.presentation||'popup';
+   kind.textContent=n.kind;title.textContent=n.title;body.textContent=n.body||'';
+   ack.textContent=n.acknowledgement_required===false?'DISMISS':'ACKNOWLEDGE';
+   ack.disabled=false;
+   pop.classList.remove('hidden');
+   if(n.presentation==='banner'&&n.acknowledgement_required===false){
+     clearTimeout(pop._descentAutoDismiss);
+     pop._descentAutoDismiss=setTimeout(()=>{if(!pop.classList.contains('hidden')&&pop._descentNotification===n)dismissCurrentNotification(n,pop,ack)},8000);
+   }
+ }
  function ingestSystemEvent(row){
    if(!row||seenSystemEvents.has(String(row.id))||row.status==='acknowledged'||row.status==='recorded'||row.event_type==='content_created')return;
    const d=row.data||row,type=d.event_type||row.event_type,relatedId=d.related_object_id||row.related_object_id,title=d.title||row.name||'SYSTEM EVENT';
@@ -84,6 +115,26 @@
    if(!unread){pop.classList.add('hidden');return}
    txt.textContent=unread.text;pop.classList.remove('hidden');ack.disabled=false;ack.textContent='ACKNOWLEDGE';
    ack.onclick=async()=>{ack.disabled=true;ack.textContent='ACKNOWLEDGING...';try{await markPrivateMessageRead(unread.dbId);unread.read=true;pop.classList.add('hidden');render()}catch(e){ack.disabled=false;ack.textContent='ACKNOWLEDGE';alert('Acknowledgement failed: '+e.message)}};
+ }
+ document.addEventListener('click',e=>{
+   const ack=e.target.closest?.('#eventAck');
+   if(!ack)return;
+   e.preventDefault();e.stopPropagation();
+   const pop=document.querySelector('#eventPopup'),n=pop?._descentNotification;
+   if(pop&&n)dismissCurrentNotification(n,pop,ack);
+ },true);
+
+ // Clean up legacy duplicate NEW QUEST private messages created by older reward deployment.
+ // If the quest is no longer assigned, mark that old private message read before showing popups.
+ for(const m of (c.messages||[])){
+   if(m.read||!m.dbId)continue;
+   const match=String(m.text||'').match(/^NEW QUEST!\s*\/\/\s*(.+?)(?:\n|$)/i);
+   if(!match)continue;
+   const questName=match[1].trim();
+   const stillAssigned=(c.quests||[]).some(q=>String(q.name||'').trim()===questName);
+   if(!stillAssigned){
+     try{await markPrivateMessageRead(m.dbId);m.read=true}catch(e){console.warn('Legacy quest message cleanup:',e.message)}
+   }
  }
  refreshSystemPopup();
  await initSystemEvents();
