@@ -1,4 +1,4 @@
-window.DESCENT_GM_BUILD='3.7.7';
+window.DESCENT_GM_BUILD='4.0';
 (async()=>{
 let state=await getState(),workspace='dashboard';
 let aiDraft=null;
@@ -44,6 +44,20 @@ async function initContentCloud(){
  const local=localLibrary();if(!all.length&&local.length){for(const x of local)await cloudUpsertContent(x);cloudLibrary=local;library._last=JSON.parse(JSON.stringify(local))}localStorage.setItem(LIB_KEY,JSON.stringify(cloudLibrary));
  }catch(e){console.error('Content Engine cloud init failed',e);cloudContentReady=false;cloudStatus='LOCAL FALLBACK // RUN 3.3 MIGRATION'}}
 
+async function loadHomecomingPack(){
+ try{
+  const res=await fetch('./data/homecoming-content-pack.json?v=4.0');if(!res.ok)throw new Error('HTTP '+res.status);
+  const pack=await res.json(),records=pack.records||[],lib=library(),byId=new Map(lib.map(x=>[x.id,x]));
+  let added=0,updated=0;
+  for(const x of records){if(byId.has(x.id))updated++;else added++;byId.set(x.id,x)}
+  const merged=[...byId.values()];
+  if(cloudContentReady){for(const x of records)await cloudUpsertContent(x);cloudLibrary=merged;library._last=JSON.parse(JSON.stringify(merged))}
+  localStorage.setItem(LIB_KEY,JSON.stringify(merged));
+  feed(`Floor One content pack loaded: ${pack.name} // ${records.length} records // ${added} new // ${updated} updated.`);
+  alert(`${pack.name} loaded.\n${records.length} records\n${added} new // ${updated} updated`);
+  render();
+ }catch(e){alert('Homecoming content pack failed to load: '+e.message)}
+}
 function id(prefix){return prefix+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)}
 function crawler(cid){return state.crawlers.find(c=>String(c.id)===String(cid))}
 function opts(selected=''){return state.crawlers.map(c=>`<option value="${escA(c.id)}" ${String(c.id)===String(selected)?'selected':''}>${escA(c.name)}</option>`).join('')}
@@ -61,7 +75,7 @@ function card(c){const cm=modFor(Number(c.stats?.CON||1));return `<article class
 function dashboard(){
  const a=active();
  return `<section class="gm-dashboard"><div class="gm-party">${state.crawlers.map(card).join('')}</div>
- <aside class="gm-side"><div class="panel"><div class="tag">CONTENT ENGINE</div><h2>${escA(cloudStatus)}</h2><div class="muted small">${cloudContentReady?'Shared Supabase library is authoritative. Local storage is retained as a browser cache.':'Run the Phase 3.3 SQL migration, then reload. Existing local content remains available.'}</div>${cloudContentReady?'<button id="syncContentCloud">SYNC CONTENT NOW</button>':''}</div><div class="panel"><div class="tag">DUNGEON FEED</div><div class="feed">${(state.feed||[]).slice(0,18).map(x=>`<div class="feeditem"><b>${escA(x.at||'')}</b><br>${escA(x.text)}</div>`).join('')}</div></div>
+ <aside class="gm-side"><div class="panel"><div class="tag">CONTENT ENGINE</div><h2>${escA(cloudStatus)}</h2><div class="muted small">${cloudContentReady?'Shared Supabase library is authoritative. Local storage is retained as a browser cache.':'Run the Phase 3.3 SQL migration, then reload. Existing local content remains available.'}</div>${cloudContentReady?'<button id="syncContentCloud">SYNC CONTENT NOW</button>':''}<button id="loadHomecomingPack" class="primary">LOAD HOMECOMING PACK</button><div class="muted small">Phase 4.0 curated Floor One content // safe to re-run; matching IDs update in place.</div></div><div class="panel"><div class="tag">DUNGEON FEED</div><div class="feed">${(state.feed||[]).slice(0,18).map(x=>`<div class="feeditem"><b>${escA(x.at||'')}</b><br>${escA(x.text)}</div>`).join('')}</div></div>
  <div class="panel"><div class="tag">ENCOUNTER CONTROL</div>${a?`<h2>${escA(a.name)}</h2><div class="gm-encounter-readout"><b>ROUND ${a.round}</b><span>${escA(a.phase.toUpperCase())}</span></div>
  <div class="gm-combatants">${(a.participants||[]).filter(p=>p.kind==='adversary').map(p=>`<div class="gm-combatant"><div><b>${escA(p.name)}</b><span class="pill">DR ${p.dr||0}</span><span class="pill">EVADE ${escA(p.evade||'—')}</span></div><div class="gm-minihealth">${Array.from({length:p.health.slots_max},(_,i)=>`<i class="${i<p.health.slots_current?'on':''}"></i>`).join('')}</div><div class="small muted">${p.health.slots_current}/${p.health.slots_max} HEALTH SLOTS${(p.conditions||[]).length?' // '+escA(p.conditions.join(', ')):''}</div><div class="controls"><button data-mobslot="${p.participant_id}" data-d="-1">− SLOT</button><button data-mobslot="${p.participant_id}" data-d="1">+ SLOT</button><select data-atkselect="${p.participant_id}">${(p.attacks||[]).map((a,i)=>`<option value="${i}">${escA(a.name)}</option>`).join('')}</select><button data-mobattack="${p.participant_id}">ATTACK</button><button data-condition="${p.participant_id}">CONDITION</button></div></div>`).join('')||'<p class="muted">No adversaries instantiated.</p>'}</div>
  ${a.phase==='crawlers'?`<div class="gm-actions-board">${state.crawlers.map(c=>`<div><b>${escA(c.name)}</b><span>${Number(a.actions_remaining?.[c.id]??2)} ACTIONS</span><button data-spendaction="${c.id}">SPEND</button><button data-resetaction="${c.id}">RESET</button></div>`).join('')}</div>`:''}
@@ -256,6 +270,7 @@ function bind(){
  document.querySelectorAll('[data-qfail]').forEach(b=>b.onclick=async()=>{const [cid,key]=b.dataset.qfail.split('|'),c=crawler(cid),q=findQuestInstance(c,key);if(!q)return;if(!confirm(`Fail ${q.name} for ${c.name}?`))return;q.status='FAILED';await saveCrawlerNow(c);queueEvent({event_type:'quest_failed',title:q.name,body:'Quest failed.',recipient_id:c.id,recipient_name:c.name,priority:'high',presentation:'popup',related_object_type:'quest',related_object_id:q.definition_id||q.id});feed(`${c.name} failed quest: ${q.name}.`);state=readState()||state;render()});
  document.querySelector('#quickDeploy')?.addEventListener('click',async()=>{const x=library().find(z=>z.id===document.querySelector('#quickReward').value);if(!x)return alert('Select a definition.');const who=document.querySelector('#quickRecipient').value,targets=who==='PARTY'?state.crawlers:[crawler(who)].filter(Boolean);await deployRewardToTargets(x,targets);render()});
  document.querySelector('#resolveWorkflow')?.addEventListener('click',async()=>{const a=active();if(!a)return;const qid=document.querySelector('#resolveQuest').value,aid=document.querySelector('#resolveAch').value,qdef=library().find(x=>x.id===qid),ach=library().find(x=>x.id===aid);let summary=`Resolve ${a.name}?`;if(qdef)summary+=`\nComplete linked quest: ${qdef.name}`;if(ach)summary+=`\nAward achievement: ${ach.name}`;summary+='\n\nNothing is awarded until you confirm.';if(!confirm(summary))return;if(qdef){for(const c of state.crawlers){const q=(c.quests||[]).find(z=>z.definition_id===qdef.id||z.name===qdef.name);if(q&&String(q.status).toUpperCase()==='ACTIVE'){q.status='COMPLETE';(q.objectives||[]).forEach(o=>o.status='COMPLETE');await saveCrawlerNow(c);queueEvent({event_type:'quest_completed',title:q.name,body:q.reward||qdef.reward_notes||'Quest complete.',recipient_id:c.id,recipient_name:c.name,priority:'high',related_object_type:'quest',related_object_id:qdef.id});}}}if(ach)await deployRewardToTargets(ach,state.crawlers);feed(`Encounter resolved through Live Session Control: ${a.name}.`);saveActive(null);state=readState()||state;render()});
+ document.querySelector('#loadHomecomingPack')?.addEventListener('click',loadHomecomingPack);
  document.querySelector('#syncContentCloud')?.addEventListener('click',async()=>{try{for(const x of library())await cloudUpsertContent(x);alert('Content Engine sync complete.')}catch(e){alert('Sync failed: '+e.message)}});
  document.querySelectorAll('[data-hslot]').forEach(b=>b.onclick=async()=>{const c=crawler(b.dataset.hslot);c.healthSlotsRemaining=Math.max(0,Math.min(10,Number(c.healthSlotsRemaining||0)+Number(b.dataset.d)));await saveC(c,`${c.name} Health Bar adjusted to ${c.healthSlotsRemaining}/10 slots by GM.`)});
  document.querySelector('#nextPhase')?.addEventListener('click',()=>{const a=active();if(!a)return;if(a.phase==='mobs')a.phase='crawlers';else{a.phase='mobs';a.round++;a.actions_remaining=Object.fromEntries(state.crawlers.map(c=>[c.id,2]))}saveActive(a);feed(`Encounter ${a.name} advanced to Round ${a.round}, ${a.phase} phase.`);render()});
