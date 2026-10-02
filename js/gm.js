@@ -1,4 +1,4 @@
-window.DESCENT_GM_BUILD='4.1';
+window.DESCENT_GM_BUILD='4.2';
 (async()=>{
 let state=await getState(),workspace='dashboard';
 let aiDraft=null;
@@ -75,6 +75,46 @@ async function loadDynamicHomecoming(){
   workspace='tables';render();
  }catch(e){alert('Dynamic Homecoming failed to load: '+e.message)}
 }
+
+const DIRECTOR_KEY='descentDungeonDirectorV4_2';
+function directorState(){try{return {...{pulse:0,last:null},...JSON.parse(localStorage.getItem(DIRECTOR_KEY)||'{}')}}catch{return {pulse:0,last:null}}}
+function saveDirectorState(x){localStorage.setItem(DIRECTOR_KEY,JSON.stringify(x))}
+const DIRECTOR_STATES={
+ 0:{tables:['Street Encounters','NPC Reactions','Rumors & Clues','Loot Discovery'],encounters:['f1_e_dogs','f1_e_porches','f1_e_carts'],quests:['f1_q_town','f1_q_pump7','f1_q_school'],achievements:['f1_dyn_a_04','f1_dyn_a_09','f1_dyn_a_16','f1_dyn_a_54'],tone:'Subtle. Let Brownwood almost pass for normal.'},
+ 1:{tables:['Environmental Weirdness','Memory Bleed','Rumors & Clues','Failure Consequences'],encounters:['f1_e_halls','f1_e_receipts','f1_e_lanes'],quests:['f1_q_town','f1_q_receipt','f1_q_bowling'],achievements:['f1_dyn_a_15','f1_dyn_a_18','f1_dyn_a_49','f1_dyn_a_58'],tone:'Contradictions should accumulate faster than explanations.'},
+ 2:{tables:['System Interruptions','Mob Complications','Environmental Weirdness','NPC Reactions'],encounters:['f1_e_pumpboss','f1_e_booking','f1_e_range'],quests:['f1_q_blackdoor','f1_q_jail','f1_q_gunstore'],achievements:['f1_dyn_a_27','f1_dyn_a_50','f1_dyn_a_57','f1_dyn_a_59'],tone:'The System has noticed the investigation. Make its attention personal, not omniscient.'},
+ 3:{tables:['Mob Complications','Rest Complications','System Interruptions','Failure Consequences'],encounters:['f1_e_lockdown','f1_e_warden','f1_e_arena2'],quests:['f1_q_blackdoor','f1_q_nadia','f1_q_coliseum'],achievements:['f1_dyn_a_42','f1_dyn_a_48','f1_dyn_a_51','f1_dyn_a_60'],tone:'Pressure rises. Telegraph closures and keep at least one actionable route open.'},
+ 4:{tables:['System Interruptions','Mob Complications','Memory Bleed','Rumors & Clues'],encounters:['f1_e_bleachers','f1_e_caesar','f1_e_cerberuff','f1_e_finalframe'],quests:['f1_q_stadium','f1_q_home'],achievements:['f1_dyn_a_21','f1_dyn_a_44','f1_dyn_a_53','f1_dyn_a_56'],tone:'Payoff mode. Reuse clues, jokes, and consequences the party already created.'}
+};
+function directorPick(arr,seed,count=2){if(!arr?.length)return[];const out=[];for(let i=0;i<Math.min(count,arr.length);i++)out.push(arr[(seed+i)%arr.length]);return out}
+function directorPulse(){
+ const ds=dynamicState(),pack=ds.pack,st=Math.max(0,Math.min(4,Number(ds.escalation||0))),cfg=DIRECTOR_STATES[st],d=directorState(),pulse=Number(d.pulse||0)+1,lib=library();
+ const tableNames=directorPick(cfg.tables,pulse,2),tables=tableNames.map(n=>pack?.tables?.find(t=>t.name===n)).filter(Boolean);
+ const encounterIds=directorPick(cfg.encounters,pulse,2),questIds=directorPick(cfg.quests,pulse+1,2),achievementIds=directorPick(cfg.achievements,pulse+2,2);
+ const byId=id=>lib.find(x=>x.id===id);
+ const avgHealth=state.crawlers.length?state.crawlers.reduce((a,c)=>a+Number(c.healthSlotsRemaining||0),0)/state.crawlers.length:10;
+ const activeQs=state.crawlers.reduce((n,c)=>n+(c.quests||[]).filter(q=>String(q.status||'ACTIVE').toUpperCase()==='ACTIVE').length,0);
+ const notes=[];
+ if(active())notes.push('An encounter is already active. Favor complications, System commentary, or aftermath instead of staging another fight.');
+ if(avgHealth<=5)notes.push('Party average health is at or below half. Prefer clues, social pressure, or a Weak complication over stacking combat.');
+ if(activeQs>=state.crawlers.length)notes.push('The party already has many active quest assignments. Surface clues toward existing work before adding another quest.');
+ if(!notes.length)notes.push('No immediate pressure flags detected. Use pacing and player choices to decide whether to escalate.');
+ const result={pulse,state:st,tone:cfg.tone,tables,encounters:encounterIds.map(byId).filter(Boolean),quests:questIds.map(byId).filter(Boolean),achievements:achievementIds.map(byId).filter(Boolean),notes,avgHealth,activeQs,generated_at:new Date().toISOString()};
+ saveDirectorState({pulse,last:result});return result
+}
+function director(){
+ const dyn=dynamicState(),pack=dyn.pack,states=pack?.escalation_states||[],cur=states[Math.max(0,Math.min(Number(dyn.escalation||0),states.length-1))],d=directorState(),p=d.last;
+ if(!pack)return `<section class="panel"><span class="tag">DUNGEON DIRECTOR</span><h2>4.1 Dynamic Pack Required</h2><p class="muted">Load Dynamic Homecoming 4.1 from the Dashboard first. The Director reads those tables and escalation states.</p><button data-jump="dashboard" class="primary">OPEN DASHBOARD</button></section>`;
+ const card=(label,x,kind)=>`<div class="gm-library-row"><div><span class="tag">${label}</span><h3>${escA(x.name||x.title)}</h3><div class="muted">${escA(x.description||x.system_description||x.gm_end_goal||'Existing Content Engine record.')}</div></div><div class="controls"><button data-director-open="${kind}|${x.id}">OPEN</button></div></div>`;
+ return `<section class="gm-two"><div class="panel"><span class="tag">DUNGEON DIRECTOR // ADVISORY</span><h2>${cur?`STATE ${cur.state} // ${escA(cur.name)}`:'HOMECOMING'}</h2><p>${escA(cur?.summary||'')}</p><div class="notice"><b>DIRECTOR TONE</b> — ${escA(DIRECTOR_STATES[Number(dyn.escalation||0)]?.tone||'React to player choices.')}</div><p class="muted small">The Director never deploys encounters, awards achievements, sends messages, or advances escalation by itself. You remain the GM.</p><button id="directorPulse" class="primary">RUN DIRECTOR PULSE</button></div>
+ <div class="panel"><span class="tag">PARTY PRESSURE</span><h2>Live Read</h2><div class="gm-cardstats"><span>AVG HEALTH ${p?Number(p.avgHealth).toFixed(1):'—'}/10 SLOTS</span><span>ACTIVE QUESTS ${p?.activeQs??'—'}</span><span>ENCOUNTER ${active()?'ACTIVE':'NONE'}</span></div>${p?`<div class="notice small">${p.notes.map(n=>`• ${escA(n)}`).join('<br>')}</div>`:'<p class="muted">Run a pulse to analyze the current party state.</p>'}</div></section>
+ ${p?`<section class="panel"><span class="tag">DIRECTOR PULSE ${p.pulse}</span><h2>What the Dungeon could surface next</h2><div class="notice"><b>PACING</b> — ${escA(p.tone)}</div></section>
+ <section class="gm-two"><div class="panel"><span class="tag">REACTIONS</span><h2>Context Tables</h2>${p.tables.map(t=>`<div class="gm-library-row"><div><b>${escA(t.name)}</b><div class="muted small">d${t.die} // ${t.results.length} results</div></div><button data-director-table="${t.id}">ROLL</button></div>`).join('')||'<p class="muted">No table suggestions loaded.</p>'}<div id="directorRoll" class="gm-roll">Roll a suggested table when you want an interruption.</div></div>
+ <div class="panel"><span class="tag">ENCOUNTERS</span><h2>Available Pressure</h2>${p.encounters.map(x=>card('ENCOUNTER',x,'encounters')).join('')||'<p class="muted">No matching encounter records. Load the Homecoming content pack.</p>'}</div></section>
+ <section class="gm-two"><div class="panel"><span class="tag">QUEST THREADS</span><h2>Existing Threads to Surface</h2>${p.quests.map(x=>card('QUEST',x,'rewards')).join('')||'<p class="muted">No matching quest records.</p>'}</div>
+ <div class="panel"><span class="tag">ACHIEVEMENT WATCH</span><h2>Conditions Worth Watching</h2>${p.achievements.map(x=>card('ACHIEVEMENT',x,'rewards')).join('')||'<p class="muted">No matching achievement records.</p>'}</div></section>`:`<section class="panel"><span class="tag">READY</span><h2>Run a Director Pulse</h2><p class="muted">A pulse reads escalation, party health, active quests, active combat, and the existing Homecoming library, then surfaces options without changing player state.</p></section>`}`;
+}
+
 function id(prefix){return prefix+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)}
 function crawler(cid){return state.crawlers.find(c=>String(c.id)===String(cid))}
 function opts(selected=''){return state.crawlers.map(c=>`<option value="${escA(c.id)}" ${String(c.id)===String(selected)?'selected':''}>${escA(c.name)}</option>`).join('')}
@@ -353,7 +393,7 @@ function tables(){
 }
 function render(){
  header();document.querySelectorAll('[data-workspace]').forEach(b=>b.classList.toggle('active',b.dataset.workspace===workspace));
- const w=document.querySelector('#workspace');w.innerHTML=workspace==='dashboard'?dashboard():workspace==='session'?session():workspace==='ai'?aiStudio():workspace==='actions'?actions():workspace==='rewards'?rewards():workspace==='items'?items():workspace==='npcs'?npcs():workspace==='adversaries'?adversaries():workspace==='encounters'?encounters():tables();
+ const w=document.querySelector('#workspace');w.innerHTML=workspace==='dashboard'?dashboard():workspace==='session'?session():workspace==='ai'?aiStudio():workspace==='actions'?actions():workspace==='rewards'?rewards():workspace==='items'?items():workspace==='npcs'?npcs():workspace==='adversaries'?adversaries():workspace==='encounters'?encounters():workspace==='director'?director():tables();
  bind();
 }
 async function saveC(c,msg){await saveCrawlerNow(c);if(msg)feed(msg);state=readState()||state;render()}
@@ -406,6 +446,10 @@ function bind(){
  document.querySelectorAll('[data-deployenc]').forEach(b=>b.onclick=()=>{const x=library().find(z=>z.id===b.dataset.deployenc);if(!x)return;if(active()&&!confirm('Replace the currently active encounter?'))return;const crawlers=state.crawlers.map(c=>({participant_id:'crawler_'+c.id,kind:'crawler',crawler_id:c.id,name:c.name,health:{slots_max:10,slots_current:c.healthSlotsRemaining},conditions:[]}));const adversaries=[];(x.participants||[]).filter(p=>p.role==='adversaries').forEach(p=>{for(let i=0;i<Number(p.count||0);i++){const t=p.template||{};adversaries.push({participant_id:id('mob'),kind:'adversary',name:`${t.name||'Dungeon Mob'} ${i+1}`,health:{slots_max:Number(t.health_slots||10),slots_current:Number(t.health_slots||10)},dr:Number(t.dr||0),evade:t.evade||'11+F',surprise:t.surprise||'—',move:t.move||'—',level:t.level||x.floor,classification:t.classification||'Mob',stats:t.stats||{},attacks:t.attacks||[],special_rules:t.special_rules||[],conditions:[]})}});const runtime={instance_id:id('active'),definition_id:x.id,name:x.name,status:'active',round:1,phase:'mobs',floor:x.floor,party_size:state.crawlers.length,participants:[...crawlers,...adversaries],actions_remaining:Object.fromEntries(state.crawlers.map(c=>[c.id,2])),objective_state:Object.fromEntries((x.objectives||[]).map(o=>[o.id,'active'])),event_log:[],started_at:new Date().toISOString()};saveActive(runtime);feed(`Encounter deployed: ${x.name}. Round 1 begins with the Mob phase unless crawlers achieved surprise.`);render()});
  document.querySelectorAll('[data-deletecontent]').forEach(b=>b.onclick=()=>{const lib=library(),x=lib.find(z=>z.id===b.dataset.deletecontent);if(x&&confirm(`Delete ${x.name} from local Content Library?`)){saveLibrary(lib.filter(z=>z.id!==x.id));render()}});
 
+
+ document.querySelector('#directorPulse')?.addEventListener('click',()=>{directorPulse();feed('Dungeon Director pulse generated for the current Homecoming state.');render()});
+ document.querySelectorAll('[data-director-table]').forEach(b=>b.onclick=()=>{const pack=dynamicState().pack,t=pack?.tables?.find(x=>x.id===b.dataset.directorTable),el=document.querySelector('#directorRoll');if(!t||!el)return;const roll=Math.floor(Math.random()*t.results.length)+1,r=t.results[roll-1];el.innerHTML=`<div class="tag">${escA(t.name)} // d${t.die} → ${roll}</div><h2>${escA(r.title)}</h2><p>${escA(r.text)}</p><div class="notice small"><b>GM</b> — ${escA(r.gm)}</div>`});
+ document.querySelectorAll('[data-director-open]').forEach(b=>b.onclick=()=>{const [dest,rid]=b.dataset.directorOpen.split('|');workspace=dest;render();setTimeout(()=>{const target=document.querySelector(`[data-deployenc="${rid}"],[data-search*="${rid.toLowerCase()}"]`);target?.scrollIntoView({behavior:'smooth',block:'center'})},0)});
  document.querySelector('#escDown')?.addEventListener('click',()=>{const d=dynamicState();d.escalation=Math.max(0,Number(d.escalation||0)-1);saveDynamicState(d);feed(`Homecoming escalation changed to State ${d.escalation}.`);render()});
  document.querySelector('#escUp')?.addEventListener('click',()=>{const d=dynamicState(),max=(d.pack?.escalation_states?.length||1)-1;d.escalation=Math.min(max,Number(d.escalation||0)+1);saveDynamicState(d);feed(`Homecoming escalation changed to State ${d.escalation}.`);render()});
  function showDynamicResult(result,table,roll){const el=document.querySelector('#dynamicResult');if(!el)return;el.innerHTML=`<div class="tag">${escA(table.name)} // ${roll}</div><h2>${escA(result.title)}</h2><p>${escA(result.text)}</p><div class="notice small"><b>GM</b> — ${escA(result.gm)}</div>`}
