@@ -1,3 +1,4 @@
+window.DESCENT_CRAWLER_BUILD='3.7.7';
 
 (async()=>{
  const state=await getState();
