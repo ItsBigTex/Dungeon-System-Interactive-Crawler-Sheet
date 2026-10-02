@@ -1,3 +1,4 @@
+window.DESCENT_CRAWLER_BUILD='3.7.7';
 
 (async()=>{
  const state=await getState();
@@ -48,9 +49,6 @@
    partyMessages=await DSCloud.partyMessages(100);
    partyMessageChannel=DSCloud.subscribePartyMessages(row=>{
      partyMessages.unshift(row);
-     if(String(row.sender_crawler_id)!==String(c.id)){
-       queueSystemNotification('PARTY MESSAGE',row.sender_name||'PARTY',row.text||'',{presentation:'banner',priority:'normal',acknowledgement_required:false});
-     }
      if(tab==='comms')renderView();
    })
  }catch(e){console.warn('Party comms unavailable (run Phase 3.7 migration):',e.message)}}
@@ -59,8 +57,52 @@
  let notificationQueue=[],notificationShowing=false,seenSystemEvents=new Set(),systemEventChannel=null;
  function queueSystemNotification(kind,title,body='',meta={}){notificationQueue.push({kind,title,body,...meta});showNextNotification()}
  function eventLabel(type){return ({achievement:'NEW ACHIEVEMENT!',quest_received:'NEW QUEST!',quest_updated:'QUEST UPDATED!',quest_completed:'QUEST COMPLETE!',quest_failed:'QUEST FAILED!',loot_box_received:'LOOT BOX RECEIVED!',system_announcement:'SYSTEM ANNOUNCEMENT',private_message:'SYSTEM MESSAGE',level_gained:'LEVEL GAINED!',floor_changed:'FLOOR UPDATE',health_warning:'HEALTH WARNING',mana_warning:'MANA WARNING',item_received:'ITEM RECEIVED!'})[type]||'SYSTEM NOTIFICATION'}
- async function showNextNotification(){if(notificationShowing||!notificationQueue.length)return;const n=notificationQueue.shift(),pop=document.querySelector('#eventPopup'),kind=document.querySelector('#eventKind'),title=document.querySelector('#eventTitle'),body=document.querySelector('#eventBody'),ack=document.querySelector('#eventAck');if(!pop||!kind||!title||!body||!ack){notificationQueue.unshift(n);return}notificationShowing=true;pop.dataset.priority=n.priority||'normal';pop.dataset.presentation=n.presentation||'popup';kind.textContent=n.kind;title.textContent=n.title;body.textContent=n.body||'';pop.classList.remove('hidden');ack.textContent=n.acknowledgement_required===false?'DISMISS':'ACKNOWLEDGE';ack.onclick=async()=>{ack.disabled=true;try{if(n.event_id&&n.acknowledgement_required!==false)await DSCloud.acknowledgeSystemEvent(n.event_id);pop.classList.add('hidden');notificationShowing=false;ack.disabled=false;showNextNotification()}catch(e){ack.disabled=false;alert('System event acknowledgement failed: '+e.message)}}}
- function ingestSystemEvent(row){if(!row||seenSystemEvents.has(String(row.id))||row.status==='acknowledged'||row.status==='recorded'||row.event_type==='content_created')return;seenSystemEvents.add(String(row.id));const d=row.data||row;queueSystemNotification(eventLabel(d.event_type||row.event_type),d.title||row.name||'SYSTEM EVENT',d.body||'',{event_id:row.id,priority:d.priority||row.priority||'normal',presentation:d.presentation||row.presentation||'popup',acknowledgement_required:d.acknowledgement_required!==false})}
+ async function dismissCurrentNotification(n,pop,ack){
+   if(!notificationShowing)return;
+   ack.disabled=true;
+   try{
+     if(n?.event_id&&n.acknowledgement_required!==false)await DSCloud.acknowledgeSystemEvent(n.event_id);
+   }catch(e){
+     ack.disabled=false;
+     alert('System event acknowledgement failed: '+e.message);
+     return;
+   }
+   pop.classList.add('hidden');
+   notificationShowing=false;
+   ack.disabled=false;
+   showNextNotification();
+ }
+ async function showNextNotification(){
+   if(notificationShowing||!notificationQueue.length)return;
+   const n=notificationQueue.shift(),pop=document.querySelector('#eventPopup'),kind=document.querySelector('#eventKind'),title=document.querySelector('#eventTitle'),body=document.querySelector('#eventBody'),ack=document.querySelector('#eventAck');
+   if(!pop||!kind||!title||!body||!ack){notificationQueue.unshift(n);return}
+   notificationShowing=true;
+   pop._descentNotification=n;
+   pop.dataset.priority=n.priority||'normal';
+   pop.dataset.presentation=n.presentation||'popup';
+   kind.textContent=n.kind;title.textContent=n.title;body.textContent=n.body||'';
+   ack.textContent=n.acknowledgement_required===false?'DISMISS':'ACKNOWLEDGE';
+   ack.disabled=false;
+   pop.classList.remove('hidden');
+   if(n.presentation==='banner'&&n.acknowledgement_required===false){
+     clearTimeout(pop._descentAutoDismiss);
+     pop._descentAutoDismiss=setTimeout(()=>{if(!pop.classList.contains('hidden')&&pop._descentNotification===n)dismissCurrentNotification(n,pop,ack)},8000);
+   }
+ }
+ function ingestSystemEvent(row){
+   if(!row||seenSystemEvents.has(String(row.id))||row.status==='acknowledged'||row.status==='recorded'||row.event_type==='content_created')return;
+   const d=row.data||row,type=d.event_type||row.event_type,relatedId=d.related_object_id||row.related_object_id,title=d.title||row.name||'SYSTEM EVENT';
+   if(type==='quest_received'){
+     const stillAssigned=(c.quests||[]).some(q=>(relatedId&&String(q.definition_id||q.id)===String(relatedId))||String(q.name||'')===String(title));
+     if(!stillAssigned){
+       seenSystemEvents.add(String(row.id));
+       if(row.id)DSCloud.acknowledgeSystemEvent(row.id).catch(()=>{});
+       return;
+     }
+   }
+   seenSystemEvents.add(String(row.id));
+   queueSystemNotification(eventLabel(type),title,d.body||'',{event_id:row.id,priority:d.priority||row.priority||'normal',presentation:d.presentation||row.presentation||'popup',acknowledgement_required:d.acknowledgement_required!==false})
+ }
  async function initSystemEvents(){if(!DSCloud.client||!c?.id)return;try{const rows=await DSCloud.systemEvents(c.id,50);for(const row of rows)ingestSystemEvent(row);systemEventChannel=DSCloud.subscribeSystemEvents(c.id,row=>ingestSystemEvent(row))}catch(e){console.warn('System Event sync:',e.message)}}
  function detectNewCrawlerEvents(fresh){for(const a of fresh.achievements||[]){const k=`${a.name}|${a.reward||''}`;if(!knownAchievementKeys.has(k)){knownAchievementKeys.add(k);queueSystemNotification('NEW ACHIEVEMENT!',a.name,a.reward||'Reward classification pending.')}}for(const q of fresh.quests||[]){const k=`${q.name}|${q.detail||''}`;if(!knownQuestKeys.has(k)){knownQuestKeys.add(k);queueSystemNotification('NEW QUEST!',q.name,q.detail||'No additional briefing supplied.')}}for(const b of fresh.lootBoxes||[]){const k=`${b.id||''}|${b.name}`;if(!knownLootKeys.has(k)){knownLootKeys.add(k);queueSystemNotification('NEW LOOT BOX!',b.name,'A reward has been delivered to your Loot tab. The System recommends opening it before somebody else develops character growth.')}}}
  c.messages=c.messages||[];
@@ -71,6 +113,26 @@
    if(!unread){pop.classList.add('hidden');return}
    txt.textContent=unread.text;pop.classList.remove('hidden');ack.disabled=false;ack.textContent='ACKNOWLEDGE';
    ack.onclick=async()=>{ack.disabled=true;ack.textContent='ACKNOWLEDGING...';try{await markPrivateMessageRead(unread.dbId);unread.read=true;pop.classList.add('hidden');render()}catch(e){ack.disabled=false;ack.textContent='ACKNOWLEDGE';alert('Acknowledgement failed: '+e.message)}};
+ }
+ document.addEventListener('click',e=>{
+   const ack=e.target.closest?.('#eventAck');
+   if(!ack)return;
+   e.preventDefault();e.stopPropagation();
+   const pop=document.querySelector('#eventPopup'),n=pop?._descentNotification;
+   if(pop&&n)dismissCurrentNotification(n,pop,ack);
+ },true);
+
+ // Clean up legacy duplicate NEW QUEST private messages created by older reward deployment.
+ // If the quest is no longer assigned, mark that old private message read before showing popups.
+ for(const m of (c.messages||[])){
+   if(m.read||!m.dbId)continue;
+   const match=String(m.text||'').match(/^NEW QUEST!\s*\/\/\s*(.+?)(?:\n|$)/i);
+   if(!match)continue;
+   const questName=match[1].trim();
+   const stillAssigned=(c.quests||[]).some(q=>String(q.name||'').trim()===questName);
+   if(!stillAssigned){
+     try{await markPrivateMessageRead(m.dbId);m.read=true}catch(e){console.warn('Legacy quest message cleanup:',e.message)}
+   }
  }
  refreshSystemPopup();
  await initSystemEvents();
@@ -186,7 +248,7 @@
   }
   document.querySelectorAll('[data-openloot]').forEach(b=>b.onclick=()=>{const box=c.lootBoxes[+b.dataset.openloot];if(!box||box.opened)return;if(!confirm(`Open ${box.name}?`))return;box.opened=true;box.openedAt=new Date().toISOString();const added=transferLootContents(box.contents);c.achievements.push({name:`LOOT OPENED: ${box.name}`,reward:box.contents,claimStatus:'CLAIMED'});addFeed(state,`${c.name} opened ${box.name}; ${added} reward entr${added===1?'y':'ies'} transferred to the crawler sheet.`);persist();queueSystemNotification('LOOT BOX OPENED!',box.name,box.contents||'The box was empty. The System finds this hilarious.');render();showNextNotification()});
   document.querySelectorAll('[data-removeloot]').forEach(b=>b.onclick=()=>{const i=+b.dataset.removeloot,box=c.lootBoxes[i];if(!box||!box.opened)return;if(!confirm(`Remove opened loot box "${box.name}" from this crawler's history?\n\nItems already transferred to Inventory/Equipment will NOT be removed.`))return;c.lootBoxes.splice(i,1);addFeed(state,`${c.name} removed opened loot history: ${box.name}.`);persist();render()});
-  document.querySelectorAll('[data-removequest]').forEach(b=>b.onclick=()=>{const i=+b.dataset.removequest,q=c.quests[i];if(!q)return;if(!confirm(`Remove quest "${q.name}" from this crawler's sheet?`))return;c.quests.splice(i,1);addFeed(state,`${c.name} removed quest record: ${q.name}.`);persist();render()});
+  document.querySelectorAll('[data-removequest]').forEach(b=>b.onclick=async()=>{const i=+b.dataset.removequest,q=c.quests[i];if(!q)return;if(!confirm(`Remove quest "${q.name}" from this crawler's sheet?`))return;c.quests.splice(i,1);addFeed(state,`${c.name} removed quest record: ${q.name}.`);localSave(state);render();try{if(DSCloud.client&&DSCloud.user){const payload=JSON.parse(JSON.stringify(c));delete payload.messages;await DSCloud.updateCrawler(c.id,{data:payload,updated_at:new Date().toISOString()})}else persist()}catch(e){alert('Quest was removed locally, but cloud save failed: '+e.message)}});
   document.querySelectorAll('[data-removeachievement]').forEach(b=>b.onclick=()=>{const i=+b.dataset.removeachievement,a=c.achievements[i];if(!a)return;if(!confirm(`Remove achievement "${a.name}" from this crawler's sheet?\n\nAny reward already transferred elsewhere will NOT be reversed.`))return;c.achievements.splice(i,1);addFeed(state,`${c.name} removed achievement record: ${a.name}.`);persist();render()});
   document.querySelectorAll('[data-queststatus]').forEach(s=>s.onchange=()=>{const q=c.quests[+s.dataset.queststatus],old=q.status||'ACTIVE';q.status=s.value;addFeed(state,`${c.name} changed quest "${q.name}" from ${old} to ${q.status}.`);persist();render()});
   document.querySelectorAll('[data-claimstatus]').forEach(s=>s.onchange=()=>{const a=c.achievements[+s.dataset.claimstatus],old=a.claimStatus||'UNCLAIMED';a.claimStatus=s.value;addFeed(state,`${c.name} marked achievement reward "${a.name}" ${a.claimStatus}.`);persist();render()});

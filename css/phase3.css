@@ -53,7 +53,14 @@ body .p31-healthbar i.filled{transition:opacity .2s,filter .2s}
 @keyframes dyingPulse{50%{opacity:.45}}
 
 /* Phase 3.7.1: realtime Party message banner */
-#eventPopup[data-presentation="banner"]{align-items:flex-start;padding-top:18px;pointer-events:none}
-#eventPopup[data-presentation="banner"] .event-card{width:min(920px,calc(100vw - 28px));max-width:920px;min-height:0;padding:14px 18px;pointer-events:auto}
-#eventPopup[data-presentation="banner"] .event-card h2{margin:3px 0 4px;font-size:1.05rem}
-#eventPopup[data-presentation="banner"] .event-card p{margin:0 0 8px}
+
+
+/* Phase 3.7.4: notification interaction hardening */
+
+/* Phase 3.7.5: proven notification pointer fix.
+   Runtime testing confirmed the popup hierarchy inherited pointer-events:none. */
+#eventPopup:not(.hidden),
+#eventPopup:not(.hidden) .popupbox,
+#eventPopup:not(.hidden) #eventAck {
+  pointer-events: auto !important;
+}
