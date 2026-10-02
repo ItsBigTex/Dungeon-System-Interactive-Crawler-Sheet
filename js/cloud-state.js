@@ -21,5 +21,23 @@ const DSCloud = (() => {
   async function feed(limit=100){const {data,error}=await client.from('activity_feed').select('*').order('created_at',{ascending:false}).limit(limit);if(error)throw error;return data}
   function subscribeCrawler(id,fn){return client.channel('crawler:'+id).on('postgres_changes',{event:'*',schema:'public',table:'crawlers',filter:`id=eq.${id}`},p=>fn(p.new,p)).subscribe()}
   function subscribeFeed(fn){return client.channel('party-feed').on('postgres_changes',{event:'INSERT',schema:'public',table:'activity_feed'},p=>fn(p.new)).subscribe()}
-  return {init,configured,signIn,signOut,profile,crawler,updateCrawler,feed,subscribeCrawler,subscribeFeed,get client(){return client},get user(){return user}};
+
+  async function systemEvents(crawlerId,limit=50){
+    if(!client||!user)return [];
+    let q=client.from('system_events').select('*').order('created_at',{ascending:true}).limit(limit);
+    if(crawlerId)q=q.eq('recipient_id',crawlerId);
+    const {data,error}=await q;if(error)throw error;return data||[];
+  }
+  async function acknowledgeSystemEvent(eventId){
+    if(!client||!user)throw new Error('Cloud is not ready.');
+    const {data,error}=await client.from('system_events').update({status:'acknowledged',updated_at:new Date().toISOString()}).eq('id',eventId).select().single();
+    if(error)throw error;return data;
+  }
+  function subscribeSystemEvents(crawlerId,fn){
+    if(!client)return null;
+    const filter=crawlerId?`recipient_id=eq.${crawlerId}`:undefined;
+    let ch=client.channel('system-events:'+String(crawlerId||'all')).on('postgres_changes',{event:'INSERT',schema:'public',table:'system_events',...(filter?{filter}:{})},p=>fn(p.new,p));
+    ch=ch.on('postgres_changes',{event:'UPDATE',schema:'public',table:'system_events',...(filter?{filter}:{})},p=>fn(p.new,p));return ch.subscribe();
+  }
+  return {init,configured,signIn,signOut,profile,crawler,updateCrawler,feed,subscribeCrawler,subscribeFeed,systemEvents,acknowledgeSystemEvent,subscribeSystemEvents,get client(){return client},get user(){return user}};
 })();
