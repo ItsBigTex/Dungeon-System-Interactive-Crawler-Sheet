@@ -17,3 +17,7 @@
 hr{border:0;border-top:1px solid #343941;margin:18px 0}
 @media(max-width:950px){.gm-dashboard,.gm-two,.gm-library-layout{grid-template-columns:1fr}.gm-party{grid-template-columns:1fr}.gm-commandbar{grid-template-columns:1fr}}
 @media(max-width:620px){.gm-formgrid{grid-template-columns:1fr}.gm-formgrid .wide{grid-column:auto}.gm-cardstats{grid-template-columns:repeat(2,1fr)}.gm-library-row{flex-direction:column}.gm-library-head{align-items:stretch;flex-direction:column}.gm-library-head input{min-width:0;width:100%}}
+
+.gm-combatants{display:grid;gap:8px;margin:12px 0}.gm-combatant{border:1px solid #393e46;background:#0c0e11;padding:10px}.gm-combatant>div:first-child{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.gm-combatant>div:first-child b{margin-right:auto}
+.gm-combatant .gm-minihealth{grid-template-columns:repeat(10,minmax(8px,1fr));overflow:hidden}
+.gm-actions-board{display:grid;gap:5px;margin:12px 0}.gm-actions-board>div{display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:6px;border:1px solid #30343b;padding:7px}.gm-actions-board span{font:800 11px ui-monospace;color:#e6b84a}

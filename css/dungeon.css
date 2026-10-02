@@ -25,3 +25,5 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .spellform{margin-top:18px;padding-top:14px;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:end}
 .spellform h3,.spellform .wide{grid-column:1/-1}
 @media(max-width:720px){.spellform{grid-template-columns:1fr}}
+
+@keyframes p321Dice{0%{transform:rotate(-18deg) scale(.75);opacity:.35}60%{transform:rotate(12deg) scale(1.18)}100%{transform:rotate(0) scale(1);opacity:1}} .p3-die.rolling{animation:p321Dice .38s ease-out}
