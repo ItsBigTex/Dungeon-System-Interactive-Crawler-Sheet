@@ -65,3 +65,11 @@ body .p31-healthbar i.filled{transition:opacity .2s,filter .2s}
 #eventPopup[data-presentation="banner"] .popupbox,
 #eventPopup[data-presentation="banner"] #eventAck{pointer-events:auto!important}
 #eventPopup[data-presentation="banner"] #eventAck{cursor:pointer!important}
+
+/* Phase 3.7.5: proven notification pointer fix.
+   Runtime testing confirmed the popup hierarchy inherited pointer-events:none. */
+#eventPopup:not(.hidden),
+#eventPopup:not(.hidden) .popupbox,
+#eventPopup:not(.hidden) #eventAck {
+  pointer-events: auto !important;
+}
