@@ -53,7 +53,9 @@ body .p31-healthbar i.filled{transition:opacity .2s,filter .2s}
 @keyframes dyingPulse{50%{opacity:.45}}
 
 /* Phase 3.7.1: realtime Party message banner */
-#eventPopup[data-presentation="banner"]{align-items:flex-start;padding-top:18px;pointer-events:none}
-#eventPopup[data-presentation="banner"] .popupbox{width:min(920px,calc(100vw - 28px));max-width:920px;min-height:0;padding:14px 18px;pointer-events:auto}
+#eventPopup[data-presentation="banner"]{align-items:flex-start;padding-top:18px;pointer-events:auto;background:rgba(0,0,0,.18)}
+#eventPopup[data-presentation="banner"] .popupbox{width:min(920px,calc(100vw - 28px));max-width:920px;min-height:0;padding:14px 18px;pointer-events:auto;position:relative;z-index:10001}
 #eventPopup[data-presentation="banner"] .popupbox h2{margin:3px 0 4px;font-size:1.05rem}
 #eventPopup[data-presentation="banner"] .popupbox p{margin:0 0 8px}
+
+#eventPopup[data-presentation="banner"] #eventAck{position:relative;z-index:10002;pointer-events:auto}
