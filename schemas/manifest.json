@@ -12,6 +12,10 @@
     "encounter-participant-v1.0.schema.json",
     "encounter-definition-v1.0.schema.json",
     "active-encounter-v1.0.schema.json",
-    "adversary-power-reference-v1.0.json"
+    "adversary-power-reference-v1.0.json",
+    "quest-definition-v1.0.schema.json",
+    "achievement-definition-v1.0.schema.json",
+    "loot-box-definition-v1.0.schema.json",
+    "system-event-v1.0.schema.json"
   ]
 }
