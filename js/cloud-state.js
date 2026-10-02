@@ -39,5 +39,29 @@ const DSCloud = (() => {
     let ch=client.channel('system-events:'+String(crawlerId||'all')).on('postgres_changes',{event:'INSERT',schema:'public',table:'system_events',...(filter?{filter}:{})},p=>fn(p.new,p));
     ch=ch.on('postgres_changes',{event:'UPDATE',schema:'public',table:'system_events',...(filter?{filter}:{})},p=>fn(p.new,p));return ch.subscribe();
   }
-  return {init,configured,signIn,signOut,profile,crawler,updateCrawler,feed,subscribeCrawler,subscribeFeed,systemEvents,acknowledgeSystemEvent,subscribeSystemEvents,get client(){return client},get user(){return user}};
+
+  async function activeEncounter(){
+    if(!client||!user)return null;
+    const {data,error}=await client.from('active_encounters').select('*').eq('status','active').order('created_at',{ascending:false}).limit(1).maybeSingle();
+    if(error)throw error;return data?.data||data||null;
+  }
+  function subscribeActiveEncounter(fn){
+    if(!client)return null;
+    return client.channel('crawler-active-encounter').on('postgres_changes',{event:'*',schema:'public',table:'active_encounters'},p=>fn(p.new?.data||p.new,p)).subscribe();
+  }
+  async function partyMessages(limit=100){
+    if(!client||!user)return [];
+    const {data,error}=await client.from('party_messages').select('*').order('created_at',{ascending:false}).limit(limit);
+    if(error)throw error;return data||[];
+  }
+  async function sendPartyMessage(crawlerId,text){
+    if(!client||!user)throw new Error('Cloud is not ready.');
+    const {data,error}=await client.from('party_messages').insert({sender_crawler_id:crawlerId,text}).select().single();
+    if(error)throw error;return data;
+  }
+  function subscribePartyMessages(fn){
+    if(!client)return null;
+    return client.channel('party-messages').on('postgres_changes',{event:'INSERT',schema:'public',table:'party_messages'},p=>fn(p.new,p)).subscribe();
+  }
+  return {init,configured,signIn,signOut,profile,crawler,updateCrawler,feed,subscribeCrawler,subscribeFeed,systemEvents,acknowledgeSystemEvent,subscribeSystemEvents,activeEncounter,subscribeActiveEncounter,partyMessages,sendPartyMessage,subscribePartyMessages,get client(){return client},get user(){return user}};
 })();

@@ -1,5 +1,10 @@
 (async()=>{
 let state=await getState(),workspace='dashboard';
+let aiDraft=null;
+const AI_CFG_KEY='descentAIContentV3_6';
+function aiCfg(){try{return {...{url:'http://localhost:11434',model:'llama3.2:3b'},...JSON.parse(localStorage.getItem(AI_CFG_KEY)||'{}')}}catch{return {url:'http://localhost:11434',model:'llama3.2:3b'}}}
+function saveAiCfg(x){localStorage.setItem(AI_CFG_KEY,JSON.stringify(x))}
+
 const LIB_KEY='descentContentLibraryV3_2',ACTIVE_KEY='descentActiveEncounterV3_2';
 let cloudContentReady=false,cloudLibrary=[],cloudActive=null,cloudStatus='LOCAL FALLBACK';
 const CONTENT_TABLE={item:'content_items',npc:'content_npcs',adversary:'content_adversaries',encounter:'content_encounters',quest:'content_quests',achievement:'content_achievements',loot_box:'content_loot_boxes',system_event:'system_events'};
@@ -61,6 +66,30 @@ function dashboard(){
  ${a.phase==='crawlers'?`<div class="gm-actions-board">${state.crawlers.map(c=>`<div><b>${escA(c.name)}</b><span>${Number(a.actions_remaining?.[c.id]??2)} ACTIONS</span><button data-spendaction="${c.id}">SPEND</button><button data-resetaction="${c.id}">RESET</button></div>`).join('')}</div>`:''}
  <div class="controls"><button id="nextPhase" class="primary">NEXT PHASE</button><button id="resetRoundActions">RESET ACTIONS</button><button id="endEncounter" class="danger">RESOLVE</button></div>`:`<h2>NO ACTIVE ENCOUNTER</h2><p class="muted">Stage an encounter from the Encounter workspace.</p><button data-jump="encounters" class="primary">OPEN ENCOUNTERS</button>`}</div></aside></section>`;
 }
+function session(){
+ const lib=library(),a=active(),quests=lib.filter(x=>x.content_type==='quest'),achs=lib.filter(x=>x.content_type==='achievement'),boxes=lib.filter(x=>x.content_type==='loot_box');
+ const activeQs=state.crawlers.flatMap(c=>(c.quests||[]).filter(q=>String(q.status||'ACTIVE').toUpperCase()==='ACTIVE').map(q=>({c,q})));
+ return `<section class="gm-session">
+ <div class="gm-session-grid">
+  <div class="panel"><span class="tag">LIVE PARTY CONTROL</span><h2>${state.crawlers.length} Crawlers</h2><div class="gm-live-party">${state.crawlers.map(c=>`<div class="gm-live-row"><div><b>${escA(c.name)}</b><div class="muted small">LV ${c.level} // FLOOR ${c.floor} // MANA ${Number(c.mana??0)}/${Number(c.stats?.INT||0)}</div></div><div class="gm-minihealth">${Array.from({length:10},(_,i)=>`<i class="${i<Number(c.healthSlotsRemaining||0)?'on':''}"></i>`).join('')}</div><div class="controls"><button data-hslot="${c.id}" data-d="-1">− HP SLOT</button><button data-hslot="${c.id}" data-d="1">+ HP SLOT</button>${a&&a.phase==='crawlers'?`<button data-spendaction="${c.id}">SPEND ACTION</button>`:''}<a class="btn" href="./character.html?id=${encodeURIComponent(c.id)}">HUD</a></div></div>`).join('')}</div></div>
+  <div class="panel"><span class="tag">SYSTEM EVENT COMPOSER</span><h2>Push to HUD</h2><div class="field"><label>Recipients</label><select id="liveRecipients"><option value="PARTY">PARTY</option>${opts()}</select></div><div class="gm-formgrid"><div class="field"><label>Event</label><select id="liveEventType"><option value="system_announcement">System Announcement</option><option value="notification">Notification</option><option value="private_message">System Message</option><option value="health_warning">Health Warning</option><option value="mana_warning">Mana Warning</option></select></div><div class="field"><label>Presentation</label><select id="livePresentation"><option value="popup">Popup</option><option value="banner">Banner</option></select></div><div class="field"><label>Priority</label><select id="livePriority"><option>normal</option><option>high</option><option>critical</option><option>low</option></select></div></div><div class="field"><label>Title</label><input id="liveTitle" value="SYSTEM ANNOUNCEMENT"></div><div class="field"><label>Message</label><textarea id="liveBody" rows="5"></textarea></div><button id="liveSend" class="primary">SEND LIVE EVENT</button></div>
+ </div>
+ <div class="gm-session-grid">
+  <div class="panel"><span class="tag">ACTIVE QUEST CONTROL</span><h2>${activeQs.length} Active Assignments</h2>${activeQs.length?activeQs.map(({c,q})=>`<div class="gm-quest-live"><div><b>${escA(q.name)}</b><span class="pill">${escA(c.name)}</span></div>${(q.objectives||[]).length?(q.objectives||[]).map((o,i)=>`<label class="gm-objective"><input type="checkbox" data-qobj="${c.id}|${q.id||q.definition_id||q.name}|${i}" ${String(o.status).toUpperCase()==='COMPLETE'?'checked':''}> ${escA(o.text||o.name||'Objective')}</label>`).join(''):'<div class="muted small">No structured objectives on this quest instance.</div>'}<div class="controls"><button data-qcomplete="${c.id}|${q.id||q.definition_id||q.name}" class="primary">COMPLETE</button><button data-qfail="${c.id}|${q.id||q.definition_id||q.name}" class="danger">FAIL</button></div></div>`).join(''):'<p class="muted">No active crawler quests.</p>'}</div>
+  <div class="panel"><span class="tag">QUICK REWARD</span><h2>Library Deployment</h2><div class="field"><label>Recipient</label><select id="quickRecipient"><option value="PARTY">PARTY</option>${opts()}</select></div><div class="field"><label>Definition</label><select id="quickReward"><option value="">Select Achievement / Loot Box / Quest</option>${[...achs,...boxes,...quests].map(x=>`<option value="${x.id}">${escA(x.content_type.toUpperCase().replace('_',' '))} // ${escA(x.name)}</option>`).join('')}</select></div><button id="quickDeploy" class="primary">DEPLOY NOW</button><hr><span class="tag">ENCOUNTER RESOLUTION</span>${a?`<h3>${escA(a.name)}</h3><div class="field"><label>Quest to complete (optional)</label><select id="resolveQuest"><option value="">None</option>${quests.map(x=>`<option value="${x.id}">${escA(x.name)}</option>`).join('')}</select></div><div class="field"><label>Achievement to award (optional)</label><select id="resolveAch"><option value="">None</option>${achs.map(x=>`<option value="${x.id}">${escA(x.name)}</option>`).join('')}</select></div><button id="resolveWorkflow" class="primary">REVIEW + RESOLVE ENCOUNTER</button>`:'<p class="muted">No active encounter.</p>'}</div>
+ </div>
+ <div class="panel"><span class="tag">SESSION LOG</span><h2>Chronological Activity</h2><div class="gm-session-log">${(state.feed||[]).slice(0,60).map(x=>`<div class="feeditem"><b>${escA(x.at||'')}</b> ${escA(x.text||'')}</div>`).join('')||'<p class="muted">No activity yet.</p>'}</div></div>
+ </section>`;
+}
+function findQuestInstance(c,key){return (c.quests||[]).find(q=>String(q.id||q.definition_id||q.name)===String(key))}
+async function deployRewardToTargets(x,targets){
+ for(const c of targets){
+  if(x.content_type==='quest'){c.quests=c.quests||[];c.quests.push({id:id('questinst'),definition_id:x.id,name:x.name,detail:x.description,status:'ACTIVE',objectives:(x.objectives||[]).map(o=>({...o,status:'ACTIVE'})),reward:x.reward_notes||''});await saveCrawlerNow(c);queueEvent({event_type:'quest_received',title:x.name,body:x.description,recipient_id:c.id,recipient_name:c.name,related_object_type:'quest',related_object_id:x.id});}
+  if(x.content_type==='achievement'){c.achievements=c.achievements||[];c.achievements.push({id:id('achinst'),definition_id:x.id,name:x.name,reward:x.reward?.box_name||x.reward?.tier||'No tangible reward',description:x.description,claimStatus:'UNCLAIMED'});if(x.reward?.tier){c.lootBoxes=c.lootBoxes||[];c.lootBoxes.push({id:id('loot'),definition_id:x.reward.loot_box_definition_id||null,name:x.reward.box_name||`${x.reward.tier} Loot Box`,tier:x.reward.tier,contents:x.contents||'',opened:false,awardedAt:new Date().toISOString()});}await saveCrawlerNow(c);queueEvent({event_type:'achievement',title:x.name,body:x.description,recipient_id:c.id,recipient_name:c.name,priority:'high',presentation:'popup',related_object_type:'achievement',related_object_id:x.id});if(x.reward?.tier)queueEvent({event_type:'loot_box_received',title:x.reward.box_name||`${x.reward.tier} Loot Box`,body:`${x.reward.tier.toUpperCase()} LOOT BOX`,recipient_id:c.id,recipient_name:c.name,priority:'high',presentation:'popup',related_object_type:'achievement',related_object_id:x.id});}
+  if(x.content_type==='loot_box'){c.lootBoxes=c.lootBoxes||[];c.lootBoxes.push({id:id('loot'),definition_id:x.id,name:x.name,tier:x.tier,contents:x.contents||'',opened:false,awardedAt:new Date().toISOString()});await saveCrawlerNow(c);queueEvent({event_type:'loot_box_received',title:x.name,body:`${String(x.tier||'').toUpperCase()} ${x.box_type||'LOOT BOX'}`,recipient_id:c.id,recipient_name:c.name,priority:'high',presentation:'popup',related_object_type:'loot_box',related_object_id:x.id});}
+ }
+ feed(`${x.name} deployed to ${targets.length===state.crawlers.length?'PARTY':targets.map(c=>c.name).join(', ')} from Live Session Control.`);state=readState()||state;
+}
 function actions(){
  return `<section class="gm-two">
  <div class="panel"><div class="tag">SYSTEM EVENT</div><h2>GM Actions</h2><div class="field"><label>Crawler</label><select id="actionWho">${opts()}</select></div><div class="field"><label>Event Type</label><select id="actionType"><option>Private System Message</option><option>Achievement</option><option>Quest</option><option>GM Notes</option><option>System Announcement</option></select></div><div class="field"><label>Title / Name</label><input id="actionTitle"></div><div class="field"><label>Message / Details</label><textarea id="actionBody" rows="7"></textarea></div><button id="deployAction" class="primary">DEPLOY EVENT</button></div>
@@ -92,6 +121,69 @@ async function deployRewardDefinition(x){
   if(x.content_type==='loot_box'){c.lootBoxes=c.lootBoxes||[];c.lootBoxes.push({id:id('loot'),definition_id:x.id,name:x.name,tier:x.tier,contents:x.contents||'',opened:false,awardedAt:new Date().toISOString()});await saveCrawlerNow(c);await sendPrivateSystemMessage(c.id,`LOOT BOX RECEIVED // ${x.tier.toUpperCase()} ${x.name}`);queueEvent({event_type:'loot_box_received',title:x.name,recipient_id:c.id,recipient_name:c.name,priority:'high',presentation:'popup',related_object_type:'loot_box',related_object_id:x.id});}
  }
  feed(`${x.name} deployed to ${targets.length===state.crawlers.length?'the party':targets.map(c=>c.name).join(', ')}.`);state=readState()||state;render();
+}
+
+const AI_TYPES=['adversary','encounter','npc','item','quest','achievement','loot_box'];
+function aiReference(type){
+ const party=state.crawlers.length, floor=Math.max(1,...state.crawlers.map(c=>Number(c.floor||1)));
+ const power=POWER[party]||null;
+ return {party_size:party,floor,adversary_power:power,
+ rules:[
+  'RAW is authoritative. Never silently invent a rule. Any uncertain or invented mechanic must be listed in review_flags.',
+  'Adversary stat blocks use name/type/size, Health Bar slots, Level, Surprise, Evade, Move, DR, STR/INT/CON/DEX/CHA, attacks, notes.',
+  'Values containing +F add current Floor Number. Preserve formulas such as +F and +S; do not resolve or guess +S.',
+  'Encounter power bands use the supplied Adversary Power reference as a starting point, not a guarantee.',
+  'Achievement structure: Name, Description, Reward, and GM-only Contents. Reward may be null.',
+  'Loot Boxes use bronze/silver/gold/platinum/legendary/celestial tiers.',
+  'Quest content should distinguish Individual or Group scope and structured objectives.'
+ ]};
+}
+function aiSchemaHint(type){
+ const base={schema_version:'1.0',content_type:type,id:'DRAFT_ONLY',name:'string',source_authority:'AI_GENERATED',gm_approval_required:true,review_flags:['string']};
+ const hints={
+ adversary:{...base,species_type:'string',classification:'Mob',size:{name:'Medium',value:1},health_bar:{slots:3},level:1,surprise:'11+F',evade:'11+F',move:'20+S',dr:0,stats:{STR:1,INT:1,CON:1,DEX:1,CHA:1},attacks:[{name:'Attack',to_hit:'11+F',damage:'1d6',damage_type:'Physical',range:'5ft',other_effects:[]}],special_rules:[],notes:[],ai_announcement:'string'},
+ encounter:{...base,encounter_type:'combat',floor:1,power_band:'Moderate',party_size_reference:6,participants:[{kind:'adversary',definition_id:null,count:6,role:'adversaries',template:{name:'string',health_slots:3,evade:'11+F',dr:0,attacks:[]}}],system_announcement:'string',objectives:[{id:'obj_1',text:'string',required:true,hidden:false}],environment:{special_rules:[]}},
+ npc:{...base,npc_type:'Quest NPC',floor:1,status:'Active',location:'string',faction:'string',personality:'string',motivation:'string',behavior_rules:[],restrictions:[],dialogue_cues:[],secrets:[],quest_hooks:[]},
+ item:{...base,category:'gear',description:'string',system_description:'string',gear_slot:null,loot_tier:'bronze',floor_min:1,mechanics:{notes:'string'},tags:[]},
+ quest:{...base,scope:'Individual',description:'string',objectives:[{id:'obj_1',text:'string',required:true}],reward_notes:'string'},
+ achievement:{...base,description:'string',reward:null,contents:'string'},
+ loot_box:{...base,tier:'bronze',box_type:'Adventurer',contents:'string'}
+ };return hints[type];
+}
+function aiValidate(x,type){
+ const errors=[],flags=[...(Array.isArray(x?.review_flags)?x.review_flags:[])];
+ if(!x||typeof x!=='object')errors.push('Generator did not return a JSON object.');
+ if(x?.content_type!==type)errors.push(`content_type must be ${type}.`);
+ if(!String(x?.name||'').trim())errors.push('name is required.');
+ if(type==='adversary'){for(const k of ['health_bar','stats','attacks','surprise','evade','move'])if(x?.[k]==null)errors.push(`adversary.${k} is required.`);if(!Array.isArray(x?.attacks)||!x.attacks.length)errors.push('At least one attack is required.')}
+ if(type==='encounter'){if(!Array.isArray(x?.participants))errors.push('participants array required.');if(!['Weak','Moderate','Strong','Overwhelming'].includes(x?.power_band))flags.push('Power band is missing or non-standard; GM must review encounter scaling.')}
+ if(type==='quest'&&!Array.isArray(x?.objectives))errors.push('Quest objectives array required.');
+ if(type==='loot_box'&&!['bronze','silver','gold','platinum','legendary','celestial'].includes(String(x?.tier||'').toLowerCase()))errors.push('Loot Box tier must be Bronze–Celestial.');
+ x.source_authority='AI_GENERATED';x.gm_approval_required=true;x.review_flags=[...new Set(flags)];
+ return {errors,flags:x.review_flags};
+}
+function extractJson(s){const a=s.indexOf('{'),b=s.lastIndexOf('}');if(a<0||b<a)throw new Error('Ollama returned no JSON object.');return JSON.parse(s.slice(a,b+1))}
+async function ollamaGenerate(type,request){
+ const cfg=aiCfg(),ref=aiReference(type),schema=aiSchemaHint(type);
+ const prompt=`You are a draft content generator for a private Dungeon Crawler Carl RPG campaign tool. Return ONE JSON object only, no markdown. Do not claim invented mechanics are RAW. Follow the schema shape exactly enough for the app to validate it. Put every uncertain, inferred, invented, or homebrew mechanic in review_flags. Preserve formulas such as +F and +S without guessing their values.\n\nGM REQUEST:\n${request}\n\nCAMPAIGN/RULE REFERENCE:\n${JSON.stringify(ref,null,2)}\n\nOUTPUT SHAPE:\n${JSON.stringify(schema,null,2)}\n\nExisting library names you may reuse by name when appropriate (do not copy mechanics you cannot see): ${library().filter(x=>x.content_type===type||type==='encounter'&&x.content_type==='adversary').slice(0,30).map(x=>x.name).join(', ')||'none'}`;
+ const res=await fetch(cfg.url.replace(/\/$/,'')+'/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:cfg.model,prompt,stream:false,format:'json',options:{temperature:0.55}})});
+ if(!res.ok)throw new Error(`Ollama HTTP ${res.status}`);const data=await res.json();return extractJson(data.response||'');
+}
+function aiStudio(){
+ const cfg=aiCfg(),d=aiDraft,v=d?aiValidate(d,d.content_type):{errors:[],flags:[]};
+ return `<section class="gm-ai"><div class="gm-grid2">
+ <div class="panel"><span class="tag">LOCAL AI // OLLAMA</span><h2>AI CONTENT STUDIO</h2><p class="muted">AI creates <b>drafts only</b>. Nothing enters the Content Engine until you review and approve it. RAW remains authoritative.</p>
+ <div class="field"><label>Content Type</label><select id="aiType">${AI_TYPES.map(x=>`<option value="${x}">${x.replace('_',' ').toUpperCase()}</option>`).join('')}</select></div>
+ <div class="field"><label>GM Request</label><textarea id="aiRequest" rows="8" placeholder="Example: Moderate Floor 1 combat encounter for six crawlers in an abandoned Texas supermarket. Use an existing adversary if appropriate; otherwise draft one and flag invented mechanics."></textarea></div>
+ <div class="controls"><button id="aiGenerate" class="primary">GENERATE DRAFT</button><button id="aiClear">CLEAR DRAFT</button></div>
+ <hr><span class="tag">OLLAMA CONNECTION</span><div class="field"><label>Endpoint</label><input id="aiUrl" value="${escA(cfg.url)}"></div><div class="field"><label>Model</label><input id="aiModel" value="${escA(cfg.model)}"></div><button id="aiSaveCfg">SAVE LOCAL AI SETTINGS</button>
+ </div>
+ <div class="panel"><span class="tag">RAW GUARDRAILS</span><h2>Generation Contract</h2><div class="muted">• AI_GENERATED provenance is forced.<br>• GM approval is forced.<br>• Uncertain/invented mechanics must be flagged.<br>• +F / +S formulas are preserved.<br>• Encounter scaling uses the RAW Adversary Power table only as a starting point.<br>• Drafts cannot auto-deploy.</div>
+ <h3>Current Party Context</h3><div class="gm-cardstats"><span>${state.crawlers.length} CRAWLERS</span><span>FLOOR ${Math.max(1,...state.crawlers.map(c=>Number(c.floor||1)))}</span></div>
+ </div></div>
+ <div class="panel"><div class="gm-library-head"><div><span class="tag">GM REVIEW REQUIRED</span><h2>${d?escA(d.name||'UNNAMED DRAFT'):'NO ACTIVE DRAFT'}</h2></div>${d?'<span class="pill">AI_GENERATED</span>':''}</div>
+ ${d?`${v.errors.length?`<div class="notice"><b>VALIDATION ERRORS</b><br>${v.errors.map(escA).join('<br>')}</div>`:''}${v.flags.length?`<div class="notice"><b>REVIEW FLAGS</b><br>${v.flags.map(escA).join('<br>')}</div>`:'<div class="notice">No generator flags were returned. GM review is still mandatory.</div>'}
+ <div class="field"><label>Editable Draft JSON</label><textarea id="aiDraftJson" rows="24">${escA(JSON.stringify(d,null,2))}</textarea></div><div class="controls"><button id="aiRevalidate">REVALIDATE</button><button id="aiApprove" class="primary" ${v.errors.length?'disabled':''}>APPROVE → CONTENT ENGINE</button></div>`:'<p class="muted">Generate a draft to begin review.</p>'}</div></section>`;
 }
 function items(){
  const lib=library(),items=lib.filter(x=>x.content_type==='item');
@@ -144,12 +236,25 @@ function tables(){
 }
 function render(){
  header();document.querySelectorAll('[data-workspace]').forEach(b=>b.classList.toggle('active',b.dataset.workspace===workspace));
- const w=document.querySelector('#workspace');w.innerHTML=workspace==='dashboard'?dashboard():workspace==='actions'?actions():workspace==='rewards'?rewards():workspace==='items'?items():workspace==='npcs'?npcs():workspace==='adversaries'?adversaries():workspace==='encounters'?encounters():tables();
+ const w=document.querySelector('#workspace');w.innerHTML=workspace==='dashboard'?dashboard():workspace==='session'?session():workspace==='ai'?aiStudio():workspace==='actions'?actions():workspace==='rewards'?rewards():workspace==='items'?items():workspace==='npcs'?npcs():workspace==='adversaries'?adversaries():workspace==='encounters'?encounters():tables();
  bind();
 }
 async function saveC(c,msg){await saveCrawlerNow(c);if(msg)feed(msg);state=readState()||state;render()}
 function bind(){
  document.querySelectorAll('[data-jump]').forEach(b=>b.onclick=()=>{workspace=b.dataset.jump;render()});
+
+ document.querySelector('#aiSaveCfg')?.addEventListener('click',()=>{saveAiCfg({url:document.querySelector('#aiUrl').value.trim()||'http://localhost:11434',model:document.querySelector('#aiModel').value.trim()||'llama3.2:3b'});alert('Local AI settings saved in this browser.')});
+ document.querySelector('#aiGenerate')?.addEventListener('click',async()=>{const b=document.querySelector('#aiGenerate'),type=document.querySelector('#aiType').value,request=document.querySelector('#aiRequest').value.trim();if(!request)return alert('Describe what you want the AI to draft.');b.disabled=true;b.textContent='GENERATING…';try{const x=await ollamaGenerate(type,request);x.content_type=type;x.schema_version='1.0';x.id='draft_'+Date.now();x.source_authority='AI_GENERATED';x.gm_approval_required=true;aiValidate(x,type);aiDraft=x;render()}catch(e){alert('LOCAL AI OFFLINE OR INVALID RESPONSE\\n\\n'+e.message+'\\n\\nStart Ollama with the included launcher and confirm the selected model is installed.')}finally{if(document.querySelector('#aiGenerate')){b.disabled=false;b.textContent='GENERATE DRAFT'}}});
+ document.querySelector('#aiClear')?.addEventListener('click',()=>{aiDraft=null;render()});
+ document.querySelector('#aiRevalidate')?.addEventListener('click',()=>{try{aiDraft=JSON.parse(document.querySelector('#aiDraftJson').value);aiValidate(aiDraft,aiDraft.content_type);render()}catch(e){alert('Draft JSON is invalid: '+e.message)}});
+ document.querySelector('#aiApprove')?.addEventListener('click',()=>{try{const x=JSON.parse(document.querySelector('#aiDraftJson').value),v=aiValidate(x,x.content_type);if(v.errors.length)return alert('Fix validation errors first:\\n'+v.errors.join('\\n'));x.id=id(x.content_type==='loot_box'?'lootboxdef':x.content_type);x.schema_version='1.0';x.source_authority='AI_GENERATED';x.gm_approval_required=false;x.gm_approved_at=new Date().toISOString();x.gm_approved=true;const lib=library();lib.push(x);saveLibrary(lib);feed(`GM approved AI draft into Content Engine: ${x.name}.`);queueEvent({event_type:'content_created',title:x.name,body:'AI-generated draft approved by GM.',related_object_type:x.content_type,related_object_id:x.id,status:'recorded',source_authority:'AI_GENERATED'});aiDraft=null;alert('Approved and saved to the Content Engine.');render()}catch(e){alert('Cannot approve draft: '+e.message)}});
+
+ document.querySelector('#liveSend')?.addEventListener('click',async()=>{const who=document.querySelector('#liveRecipients').value,type=document.querySelector('#liveEventType').value,title=document.querySelector('#liveTitle').value.trim(),body=document.querySelector('#liveBody').value.trim(),presentation=document.querySelector('#livePresentation').value,priority=document.querySelector('#livePriority').value;if(!title&&!body)return alert('Enter a title or message.');const targets=who==='PARTY'?state.crawlers:[crawler(who)].filter(Boolean);for(const c of targets){queueEvent({event_type:type,title:title||'SYSTEM MESSAGE',body,recipient_id:c.id,recipient_name:c.name,priority,presentation});}feed(`Live ${type.replaceAll('_',' ')} sent to ${who==='PARTY'?'PARTY':targets[0]?.name}.`);render()});
+ document.querySelectorAll('[data-qobj]').forEach(el=>el.onchange=async()=>{const [cid,key,idx]=el.dataset.qobj.split('|'),c=crawler(cid),q=findQuestInstance(c,key);if(!q||!q.objectives?.[Number(idx)])return;q.objectives[Number(idx)].status=el.checked?'COMPLETE':'ACTIVE';await saveCrawlerNow(c);queueEvent({event_type:'quest_updated',title:q.name,body:`Objective ${Number(idx)+1}: ${el.checked?'COMPLETE':'ACTIVE'}`,recipient_id:c.id,recipient_name:c.name,related_object_type:'quest',related_object_id:q.definition_id||q.id});feed(`${c.name} quest updated: ${q.name}.`);state=readState()||state;render()});
+ document.querySelectorAll('[data-qcomplete]').forEach(b=>b.onclick=async()=>{const [cid,key]=b.dataset.qcomplete.split('|'),c=crawler(cid),q=findQuestInstance(c,key);if(!q)return;if(!confirm(`Complete ${q.name} for ${c.name}?`))return;q.status='COMPLETE';(q.objectives||[]).forEach(o=>o.status='COMPLETE');await saveCrawlerNow(c);queueEvent({event_type:'quest_completed',title:q.name,body:q.reward||'Quest complete.',recipient_id:c.id,recipient_name:c.name,priority:'high',presentation:'popup',related_object_type:'quest',related_object_id:q.definition_id||q.id});feed(`${c.name} completed quest: ${q.name}.`);state=readState()||state;render()});
+ document.querySelectorAll('[data-qfail]').forEach(b=>b.onclick=async()=>{const [cid,key]=b.dataset.qfail.split('|'),c=crawler(cid),q=findQuestInstance(c,key);if(!q)return;if(!confirm(`Fail ${q.name} for ${c.name}?`))return;q.status='FAILED';await saveCrawlerNow(c);queueEvent({event_type:'quest_failed',title:q.name,body:'Quest failed.',recipient_id:c.id,recipient_name:c.name,priority:'high',presentation:'popup',related_object_type:'quest',related_object_id:q.definition_id||q.id});feed(`${c.name} failed quest: ${q.name}.`);state=readState()||state;render()});
+ document.querySelector('#quickDeploy')?.addEventListener('click',async()=>{const x=library().find(z=>z.id===document.querySelector('#quickReward').value);if(!x)return alert('Select a definition.');const who=document.querySelector('#quickRecipient').value,targets=who==='PARTY'?state.crawlers:[crawler(who)].filter(Boolean);await deployRewardToTargets(x,targets);render()});
+ document.querySelector('#resolveWorkflow')?.addEventListener('click',async()=>{const a=active();if(!a)return;const qid=document.querySelector('#resolveQuest').value,aid=document.querySelector('#resolveAch').value,qdef=library().find(x=>x.id===qid),ach=library().find(x=>x.id===aid);let summary=`Resolve ${a.name}?`;if(qdef)summary+=`\nComplete linked quest: ${qdef.name}`;if(ach)summary+=`\nAward achievement: ${ach.name}`;summary+='\n\nNothing is awarded until you confirm.';if(!confirm(summary))return;if(qdef){for(const c of state.crawlers){const q=(c.quests||[]).find(z=>z.definition_id===qdef.id||z.name===qdef.name);if(q&&String(q.status).toUpperCase()==='ACTIVE'){q.status='COMPLETE';(q.objectives||[]).forEach(o=>o.status='COMPLETE');await saveCrawlerNow(c);queueEvent({event_type:'quest_completed',title:q.name,body:q.reward||qdef.reward_notes||'Quest complete.',recipient_id:c.id,recipient_name:c.name,priority:'high',related_object_type:'quest',related_object_id:qdef.id});}}}if(ach)await deployRewardToTargets(ach,state.crawlers);feed(`Encounter resolved through Live Session Control: ${a.name}.`);saveActive(null);state=readState()||state;render()});
  document.querySelector('#syncContentCloud')?.addEventListener('click',async()=>{try{for(const x of library())await cloudUpsertContent(x);alert('Content Engine sync complete.')}catch(e){alert('Sync failed: '+e.message)}});
  document.querySelectorAll('[data-hslot]').forEach(b=>b.onclick=async()=>{const c=crawler(b.dataset.hslot);c.healthSlotsRemaining=Math.max(0,Math.min(10,Number(c.healthSlotsRemaining||0)+Number(b.dataset.d)));await saveC(c,`${c.name} Health Bar adjusted to ${c.healthSlotsRemaining}/10 slots by GM.`)});
  document.querySelector('#nextPhase')?.addEventListener('click',()=>{const a=active();if(!a)return;if(a.phase==='mobs')a.phase='crawlers';else{a.phase='mobs';a.round++;a.actions_remaining=Object.fromEntries(state.crawlers.map(c=>[c.id,2]))}saveActive(a);feed(`Encounter ${a.name} advanced to Round ${a.round}, ${a.phase} phase.`);render()});

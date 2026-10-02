@@ -45,3 +45,9 @@ body.phase3:before{content:"";position:fixed;inset:0;pointer-events:none;opacity
 .p31-body span{font-size:10px;color:#8c949d}.p31-gearslot b{display:block;margin:7px 0}.p31-accessories{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .phase3 details{border:1px solid #34100f;margin:10px 0;padding:8px;background:#0a0c0f}.phase3 summary{cursor:pointer;padding:6px;color:#d9dde1}
 @media(max-width:700px){.p31-rulegrid,.p31-hotlist,.p31-accessories{grid-template-columns:1fr}.p31-paperdoll{grid-template-columns:1fr}.p31-body{min-height:180px;order:-1}}
+
+/* Phase 3.7 Complete Crawler HUD */
+.p3-hp:has(.p31-healthbar i.filled:nth-child(-n+3):last-of-type){border-color:#8d2020}
+body .p31-healthbar i.filled{transition:opacity .2s,filter .2s}
+.p3-profile .pill.amber{animation:dyingPulse 1.1s infinite}
+@keyframes dyingPulse{50%{opacity:.45}}
