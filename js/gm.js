@@ -1,14 +1,43 @@
 (async()=>{
 let state=await getState(),workspace='dashboard';
 const LIB_KEY='descentContentLibraryV3_2',ACTIVE_KEY='descentActiveEncounterV3_2';
+let cloudContentReady=false,cloudLibrary=[],cloudActive=null,cloudStatus='LOCAL FALLBACK';
+const CONTENT_TABLE={item:'content_items',npc:'content_npcs',adversary:'content_adversaries',encounter:'content_encounters',quest:'content_quests',achievement:'content_achievements',loot_box:'content_loot_boxes',system_event:'system_events'};
 const RAW_SLOTS=['Head','Torso','Arms','Hands/Holding','Legs','Feet','Accessories'];
 const TIERS=['mundane','bronze','silver','gold','platinum','legendary','celestial'];
 const POWER={2:{Weak:1,Moderate:2,Strong:3,Overwhelming:'4+'},3:{Weak:2,Moderate:3,Strong:5,Overwhelming:'6+'},4:{Weak:2,Moderate:4,Strong:6,Overwhelming:'8+'},5:{Weak:3,Moderate:5,Strong:8,Overwhelming:'10+'},6:{Weak:3,Moderate:6,Strong:9,Overwhelming:'12+'},7:{Weak:4,Moderate:7,Strong:11,Overwhelming:'14+'}};
 const escA=esc;
-function library(){try{return JSON.parse(localStorage.getItem(LIB_KEY)||'[]')}catch{return[]}}
-function saveLibrary(x){localStorage.setItem(LIB_KEY,JSON.stringify(x))}
-function active(){try{return JSON.parse(localStorage.getItem(ACTIVE_KEY)||'null')}catch{return null}}
-function saveActive(x){x?localStorage.setItem(ACTIVE_KEY,JSON.stringify(x)):localStorage.removeItem(ACTIVE_KEY)}
+function localLibrary(){try{return JSON.parse(localStorage.getItem(LIB_KEY)||'[]')}catch{return[]}}
+function library(){return cloudContentReady?cloudLibrary:localLibrary()}
+async function cloudUpsertContent(x){
+ if(!cloudContentReady||!DSCloud.client)return;const table=CONTENT_TABLE[x.content_type];if(!table)return;
+ const row={id:x.id,name:x.name||x.title||x.event_type||x.id,data:x,source_authority:x.source_authority||'THE_DESCENT'};
+ if(x.content_type==='item')Object.assign(row,{category:x.category||'misc',gear_slot:x.gear_slot||null,tier:x.loot_tier||null,floor_min:x.floor_min||null});
+ if(x.content_type==='npc')Object.assign(row,{npc_type:x.npc_type||null,floor_min:x.floor||null});
+ if(x.content_type==='adversary')Object.assign(row,{classification:x.classification||null,floor_min:x.floor_min||null});
+ if(x.content_type==='encounter')Object.assign(row,{floor_min:x.floor||null});
+ if(x.content_type==='quest')Object.assign(row,{scope:x.scope||'Individual'});
+ if(x.content_type==='achievement')Object.assign(row,{reward_tier:x.reward?.tier||null});
+ if(x.content_type==='loot_box')Object.assign(row,{tier:x.tier||'bronze',box_type:x.box_type||null});
+ if(x.content_type==='system_event')Object.assign(row,{event_type:x.event_type,status:x.status||'delivered',recipient_id:x.recipient_id||null,priority:x.priority||'normal',presentation:x.presentation||'popup',related_object_type:x.related_object_type||null,related_object_id:x.related_object_id||null});
+ const {error}=await DSCloud.client.from(table).upsert(row);if(error)throw error;
+}
+function saveLibrary(x){
+ localStorage.setItem(LIB_KEY,JSON.stringify(x));if(!cloudContentReady){cloudLibrary=x;return}
+ const previous=library._last||[];cloudLibrary=x;const prevIds=new Set(previous.map(z=>z.id)),nowIds=new Set(x.map(z=>z.id));
+ x.filter(z=>!prevIds.has(z.id)||JSON.stringify(previous.find(q=>q.id===z.id))!==JSON.stringify(z)).forEach(z=>cloudUpsertContent(z).catch(e=>console.error('Content upsert failed',e)));
+ previous.filter(z=>!nowIds.has(z.id)).forEach(z=>{const t=CONTENT_TABLE[z.content_type];if(t)DSCloud.client.from(t).delete().eq('id',z.id).then(({error})=>{if(error)console.error(error)})});
+ library._last=JSON.parse(JSON.stringify(x));
+}
+function active(){if(cloudContentReady)return cloudActive;try{return JSON.parse(localStorage.getItem(ACTIVE_KEY)||'null')}catch{return null}}
+function saveActive(x){x?localStorage.setItem(ACTIVE_KEY,JSON.stringify(x)):localStorage.removeItem(ACTIVE_KEY);cloudActive=x;if(cloudContentReady&&DSCloud.client){if(x)DSCloud.client.from('active_encounters').upsert({id:x.instance_id,definition_id:x.definition_id||null,name:x.name,status:x.status||'active',round:x.round||1,phase:x.phase||'mobs',floor:x.floor||1,data:x}).then(({error})=>{if(error)console.error(error)});else DSCloud.client.from('active_encounters').delete().eq('status','active').then(({error})=>{if(error)console.error(error)})}}
+async function initContentCloud(){
+ if(!DSCloud.configured()||!DSCloud.client){cloudStatus='LOCAL FALLBACK';return}
+ try{const all=[];for(const [type,table] of Object.entries(CONTENT_TABLE)){const {data,error}=await DSCloud.client.from(table).select('*').order('created_at',{ascending:true});if(error)throw error;(data||[]).forEach(r=>all.push(r.data||{...r,content_type:type}))}
+ cloudLibrary=all;library._last=JSON.parse(JSON.stringify(all));const {data:a,error:ae}=await DSCloud.client.from('active_encounters').select('*').eq('status','active').order('created_at',{ascending:false}).limit(1);if(ae)throw ae;cloudActive=a?.[0]?.data||null;cloudContentReady=true;cloudStatus='SUPABASE CONTENT ENGINE';
+ const local=localLibrary();if(!all.length&&local.length){for(const x of local)await cloudUpsertContent(x);cloudLibrary=local;library._last=JSON.parse(JSON.stringify(local))}localStorage.setItem(LIB_KEY,JSON.stringify(cloudLibrary));
+ }catch(e){console.error('Content Engine cloud init failed',e);cloudContentReady=false;cloudStatus='LOCAL FALLBACK // RUN 3.3 MIGRATION'}}
+
 function id(prefix){return prefix+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)}
 function crawler(cid){return state.crawlers.find(c=>String(c.id)===String(cid))}
 function opts(selected=''){return state.crawlers.map(c=>`<option value="${escA(c.id)}" ${String(c.id)===String(selected)?'selected':''}>${escA(c.name)}</option>`).join('')}
@@ -20,13 +49,13 @@ function header(){
  document.querySelector('#partySummary').textContent=`${state.crawlers.length} CRAWLERS // LV ${levels.join('/')} // FLOOR ${floors.join('/')}`;
  document.querySelector('#encounterSummary').textContent=a?`${a.name} // ROUND ${a.round} // ${a.phase.toUpperCase()}`:'NONE';
  document.querySelector('#librarySummary').textContent=`${lib.length} RECORD${lib.length===1?'':'S'}`;
- document.querySelector('#gmClock').textContent=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})+' // CLOUD LIVE';
+ document.querySelector('#gmClock').textContent=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})+' // '+cloudStatus;
 }
 function card(c){const cm=modFor(Number(c.stats?.CON||1));return `<article class="gm-crawler-card"><div><span class="tag">${escA(c.systemTitle||'CRAWLER')}</span><h3>${escA(c.name)}</h3></div><div class="gm-minihealth">${Array.from({length:10},(_,i)=>`<i class="${i<Number(c.healthSlotsRemaining||0)?'on':''}"></i>`).join('')}</div><div class="gm-cardstats"><span>HP ${Number(c.healthSlotsRemaining||0)*cm}/${cm*10}</span><span>LV ${c.level}</span><span>F${c.floor}</span><span>${c.pendingStatPoints||0} BANKED</span></div><div class="controls"><button data-hslot="${c.id}" data-d="-1">− SLOT</button><button data-hslot="${c.id}" data-d="1">+ SLOT</button><a class="btn" href="./character.html?id=${encodeURIComponent(c.id)}">OPEN HUD</a></div></article>`}
 function dashboard(){
  const a=active();
  return `<section class="gm-dashboard"><div class="gm-party">${state.crawlers.map(card).join('')}</div>
- <aside class="gm-side"><div class="panel"><div class="tag">DUNGEON FEED</div><div class="feed">${(state.feed||[]).slice(0,18).map(x=>`<div class="feeditem"><b>${escA(x.at||'')}</b><br>${escA(x.text)}</div>`).join('')}</div></div>
+ <aside class="gm-side"><div class="panel"><div class="tag">CONTENT ENGINE</div><h2>${escA(cloudStatus)}</h2><div class="muted small">${cloudContentReady?'Shared Supabase library is authoritative. Local storage is retained as a browser cache.':'Run the Phase 3.3 SQL migration, then reload. Existing local content remains available.'}</div>${cloudContentReady?'<button id="syncContentCloud">SYNC CONTENT NOW</button>':''}</div><div class="panel"><div class="tag">DUNGEON FEED</div><div class="feed">${(state.feed||[]).slice(0,18).map(x=>`<div class="feeditem"><b>${escA(x.at||'')}</b><br>${escA(x.text)}</div>`).join('')}</div></div>
  <div class="panel"><div class="tag">ENCOUNTER CONTROL</div>${a?`<h2>${escA(a.name)}</h2><div class="gm-encounter-readout"><b>ROUND ${a.round}</b><span>${escA(a.phase.toUpperCase())}</span></div>
  <div class="gm-combatants">${(a.participants||[]).filter(p=>p.kind==='adversary').map(p=>`<div class="gm-combatant"><div><b>${escA(p.name)}</b><span class="pill">DR ${p.dr||0}</span><span class="pill">EVADE ${escA(p.evade||'—')}</span></div><div class="gm-minihealth">${Array.from({length:p.health.slots_max},(_,i)=>`<i class="${i<p.health.slots_current?'on':''}"></i>`).join('')}</div><div class="small muted">${p.health.slots_current}/${p.health.slots_max} HEALTH SLOTS${(p.conditions||[]).length?' // '+escA(p.conditions.join(', ')):''}</div><div class="controls"><button data-mobslot="${p.participant_id}" data-d="-1">− SLOT</button><button data-mobslot="${p.participant_id}" data-d="1">+ SLOT</button><select data-atkselect="${p.participant_id}">${(p.attacks||[]).map((a,i)=>`<option value="${i}">${escA(a.name)}</option>`).join('')}</select><button data-mobattack="${p.participant_id}">ATTACK</button><button data-condition="${p.participant_id}">CONDITION</button></div></div>`).join('')||'<p class="muted">No adversaries instantiated.</p>'}</div>
  ${a.phase==='crawlers'?`<div class="gm-actions-board">${state.crawlers.map(c=>`<div><b>${escA(c.name)}</b><span>${Number(a.actions_remaining?.[c.id]??2)} ACTIONS</span><button data-spendaction="${c.id}">SPEND</button><button data-resetaction="${c.id}">RESET</button></div>`).join('')}</div>`:''}
@@ -121,6 +150,7 @@ function render(){
 async function saveC(c,msg){await saveCrawlerNow(c);if(msg)feed(msg);state=readState()||state;render()}
 function bind(){
  document.querySelectorAll('[data-jump]').forEach(b=>b.onclick=()=>{workspace=b.dataset.jump;render()});
+ document.querySelector('#syncContentCloud')?.addEventListener('click',async()=>{try{for(const x of library())await cloudUpsertContent(x);alert('Content Engine sync complete.')}catch(e){alert('Sync failed: '+e.message)}});
  document.querySelectorAll('[data-hslot]').forEach(b=>b.onclick=async()=>{const c=crawler(b.dataset.hslot);c.healthSlotsRemaining=Math.max(0,Math.min(10,Number(c.healthSlotsRemaining||0)+Number(b.dataset.d)));await saveC(c,`${c.name} Health Bar adjusted to ${c.healthSlotsRemaining}/10 slots by GM.`)});
  document.querySelector('#nextPhase')?.addEventListener('click',()=>{const a=active();if(!a)return;if(a.phase==='mobs')a.phase='crawlers';else{a.phase='mobs';a.round++;a.actions_remaining=Object.fromEntries(state.crawlers.map(c=>[c.id,2]))}saveActive(a);feed(`Encounter ${a.name} advanced to Round ${a.round}, ${a.phase} phase.`);render()});
  document.querySelectorAll('[data-mobslot]').forEach(b=>b.onclick=()=>{const a=active(),p=(a.participants||[]).find(x=>x.participant_id===b.dataset.mobslot);if(!p)return;p.health.slots_current=Math.max(0,Math.min(p.health.slots_max,Number(p.health.slots_current||0)+Number(b.dataset.d)));a.event_log.push({at:new Date().toISOString(),text:`${p.name} Health Bar: ${p.health.slots_current}/${p.health.slots_max}`});saveActive(a);render()});
@@ -157,5 +187,5 @@ document.querySelector('#workspaceNav').onclick=e=>{const b=e.target.closest('[d
 window.addEventListener('descent-crawler-update',e=>{const i=state.crawlers.findIndex(c=>String(c.id)===String(e.detail.id));if(i>=0){const msgs=state.crawlers[i].messages||[];state.crawlers[i]=e.detail.data;state.crawlers[i].messages=msgs}else state.crawlers.push(e.detail.data);render()});
 window.addEventListener('descent-feed-update',()=>{const s=readState();if(s?.feed)state.feed=s.feed;render()});
 window.addEventListener('descent-message-update',()=>{const s=readState();if(s?.crawlers)state.crawlers=s.crawlers;render()});
-setInterval(header,30000);render();
+await initContentCloud();setInterval(header,30000);render();
 })().catch(e=>document.querySelector('#workspace').innerHTML=`<div class="notice">${esc(e.message)}</div>`);
