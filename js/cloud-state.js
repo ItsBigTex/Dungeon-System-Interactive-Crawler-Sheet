@@ -54,9 +54,9 @@ const DSCloud = (() => {
     const {data,error}=await client.from('party_messages').select('*').order('created_at',{ascending:false}).limit(limit);
     if(error)throw error;return data||[];
   }
-  async function sendPartyMessage(crawlerId,text){
+  async function sendPartyMessage(crawlerId,text,senderName=null){
     if(!client||!user)throw new Error('Cloud is not ready.');
-    const {data,error}=await client.from('party_messages').insert({sender_crawler_id:crawlerId,text}).select().single();
+    const {data,error}=await client.from('party_messages').insert({sender_crawler_id:crawlerId,sender_name:senderName,text}).select().single();
     if(error)throw error;return data;
   }
   function subscribePartyMessages(fn){
