@@ -1,182 +1,92 @@
-
 (async()=>{
- let state=await getState();
- const party=document.querySelector('#party'),feed=document.querySelector('#feed');
- const selects=['who','questWho','messageWho','lootWho','noteWho'].map(id=>document.querySelector('#'+id));
- const lootProfiles={
-  phillip:'Runs a collectibles/game store; long shifts; teaches card games; strong sales/social skills, number crunching, business, fantasy/game lore, and detail-heavy analysis.',
-  philip:'Runs a collectibles/game store; long shifts; teaches card games; strong sales/social skills, number crunching, business, fantasy/game lore, and detail-heavy analysis.',
-  jarod:'Repair and maintenance technician with nuclear electronics/submarine background; engineering, troubleshooting, woodworking, schematics, shooting, driving, hunting and strategy.',
-  marvin:'Horror and Warhammer fan; painting and war-game strategy; lower physical confidence but useful tactical/genre instincts.',
-  harold:'Animal handling and mechanical knowledge; corrections/self-defense experience; hobbies include card games, knife making and video games.',
-  mike:'Paranormal/cryptid/alien/ghost enthusiast; strong agility/reflexes and problem solving; conspiracy and ghost-hunting interests.',
-  brad:'Hands-on communications/electronics/computers/security-tech troubleshooter; gaming, hunting, camping, radios and tabletop RPGs; calm under pressure and resourceful.'
- };
- function normalize(){state.crawlers.forEach(c=>{if(!Array.isArray(c.messages))c.messages=[];if(!Array.isArray(c.quests))c.quests=[];if(c.pendingStatPoints==null)c.pendingStatPoints=0})}
- function render(){
-  normalize();
-  party.innerHTML=state.crawlers.map(c=>`<div class="panel"><div class="tag">${esc(c.systemTitle)}</div><h2>${esc(c.name)}</h2><div class="row"><b>HP ${c.hp}/${c.maxHp}</b><span class="pill">LV ${c.level}</span></div><div class="row"><span class="muted small">QUESTS ${c.quests.filter(q=>String(q.status).toLowerCase()!=='complete').length}</span><span class="muted small">UNREAD MSG ${(c.messages||[]).filter(m=>!m.read).length}</span></div><div class="controls"><button data-hp="${c.id}" data-d="-1">-1 HP</button><button data-hp="${c.id}" data-d="1">+1 HP</button><a class="btn" href="./character.html?id=${c.id}">OPEN</a></div></div>`).join('');
-  const opts=state.crawlers.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
-  selects.forEach(s=>{const selected=s.value;s.innerHTML=opts;if(selected&&state.crawlers.some(c=>String(c.id)===String(selected)))s.value=selected});
-  feed.innerHTML=state.feed.length?state.feed.map(x=>`<div class="feeditem"><div>${esc(x.text)}</div><div class="tag">${esc(x.at)}</div></div>`).join(''):'<p class="muted">No activity yet.</p>';
-  document.querySelectorAll('[data-hp]').forEach(b=>b.onclick=()=>{const c=state.crawlers.find(x=>x.id===b.dataset.hp),d=+b.dataset.d;c.hp=Math.max(0,Math.min(c.maxHp,c.hp+d));addFeed(state,`${c.name} ${d>0?'healed':'took damage'} (${d>0?'+':''}${d} HP).`);state=readState();render()})
- }
- document.querySelector('#partyLevelUp').onclick=async()=>{if(!confirm('Advance the entire party by 1 level and bank 3 stat points for every crawler?'))return;try{for(const c of state.crawlers){c.level=Number(c.level||1)+1;c.pendingStatPoints=Number(c.pendingStatPoints||0)+3;await saveCrawlerNow(c)}addFeed(state,'PARTY ADVANCEMENT: all crawlers gained 1 level and banked 3 stat points.');state=readState();render()}catch(e){alert('Party Level Up failed: '+e.message)}};
- document.querySelector('#partyFloorUp').onclick=async()=>{if(!confirm('Advance the entire party by 1 floor?'))return;try{for(const c of state.crawlers){c.floor=Math.min(99,Number(c.floor||1)+1);await saveCrawlerNow(c)}const floor=state.crawlers[0]?.floor||'?';addFeed(state,`PARTY ADVANCEMENT: all crawlers advanced to Floor ${floor}.${Number(floor)===3?' Stat allocation is now ONLINE.':''}`);state=readState();render()}catch(e){alert('Party Floor advance failed: '+e.message)}};
- document.querySelector('#award').onclick=async()=>{
-  const c=state.crawlers.find(x=>x.id===document.querySelector('#who').value),name=document.querySelector('#awardName').value.trim(),reward=document.querySelector('#awardReward').value.trim();
-  if(!name)return alert('Enter an achievement name.');
-  c.achievements=c.achievements||[];c.achievements.push({name,reward,claimStatus:'UNCLAIMED'});
-  try{await saveCrawlerNow(c);addFeed(state,`${c.name} unlocked achievement: ${name}.`);state=readState();document.querySelector('#awardName').value='';document.querySelector('#awardReward').value='';render()}
-  catch(e){alert('Achievement save failed: '+e.message)}
- };
- document.querySelector('#assignQuest').onclick=async()=>{
-  const c=state.crawlers.find(x=>x.id===document.querySelector('#questWho').value),name=document.querySelector('#questName').value.trim(),detail=document.querySelector('#questDetail').value.trim();
-  if(!name)return alert('Enter a quest name.');
-  c.quests=c.quests||[];c.quests.push({name,detail,status:'ACTIVE'});
-  try{await saveCrawlerNow(c);addFeed(state,`${c.name} received quest: ${name}.`);state=readState();document.querySelector('#questName').value='';document.querySelector('#questDetail').value='';render()}
-  catch(e){alert('Quest save failed: '+e.message)}
- };
- document.querySelector('#sendMessage').onclick=async()=>{
-  const c=state.crawlers.find(x=>x.id===document.querySelector('#messageWho').value),text=document.querySelector('#messageText').value.trim();
-  if(!text)return alert('Enter a System message.');
-  try{await sendPrivateSystemMessage(c.id,text);addFeed(state,`Private System message delivered to ${c.name}.`);state=readState();document.querySelector('#messageText').value='';render()}
-  catch(e){alert('Message failed: '+e.message)}
- };
-
- document.querySelector('#loadNotes').onclick=()=>{const c=state.crawlers.find(x=>x.id===document.querySelector('#noteWho').value);document.querySelector('#noteText').value=c.notes||''};
- document.querySelector('#deployNotes').onclick=async()=>{const c=state.crawlers.find(x=>x.id===document.querySelector('#noteWho').value);c.notes=document.querySelector('#noteText').value;try{await saveCrawlerNow(c);addFeed(state,`GM Notes deployed to ${c.name}.`);state=readState();render()}catch(e){alert('GM Notes save failed: '+e.message)}};
-
- const OLLAMA_DEFAULT_URL='http://localhost:11434';
- const OLLAMA_DEFAULT_MODEL='llama3.2:3b';
-
- function ollamaSettings(){
-   return {
-     url:(localStorage.getItem('descentOllamaUrl')||OLLAMA_DEFAULT_URL).replace(/\/+$/,''),
-     model:localStorage.getItem('descentOllamaModel')||OLLAMA_DEFAULT_MODEL
-   };
- }
- function lootContext(c,tier,request){
-   const profile=lootProfiles[c.id]||lootProfiles[String(c.name).toLowerCase()]||'Use only the crawler sheet and player-safe information supplied here.';
-   return `You are the Dungeon System loot designer for a Dungeon Crawler Carl-inspired tabletop campaign.
-Return ONLY valid JSON with these keys: title, category, tier, quantity, effect, system_description, gm_approval_required.
-Generate one editable GM loot draft. Keep the reward appropriate to ${tier} tier, Level ${c.level}, Floor ${c.floor}.
-Personalize using ONLY the player-safe profile and crawler sheet below. Never invent or use private fears, trauma, off-limits material, or sensitive personal information.
-If you invent an unverified numeric/rules mechanic, set gm_approval_required to true and label the effect HOMEBREW / GM APPROVAL REQUIRED.
-Use a short sarcastic Dungeon System description. Avoid duplicating existing gear unless an upgrade is useful.
-
-PLAYER-SAFE PROFILE:
-${profile}
-
-CRAWLER:
-Name: ${c.name}
-Stats: ${JSON.stringify(c.stats||{})}
-Skills: ${JSON.stringify(c.skills||[])}
-Equipment: ${JSON.stringify(c.equipment||[])}
-Inventory: ${JSON.stringify(c.inventory||[])}
-
-GM REQUEST:
-${request||'Generate a useful, flavorful reward appropriate to this crawler.'}`;
- }
- async function generateWithOllama(c,tier,request){
-   const cfg=ollamaSettings();
-   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);
-   try{
-     const r=await fetch(cfg.url+'/api/generate',{
-       method:'POST',
-       headers:{'Content-Type':'application/json'},
-       body:JSON.stringify({model:cfg.model,prompt:lootContext(c,tier,request),stream:false,format:'json'}),
-       signal:controller.signal
-     });
-     if(!r.ok)throw new Error(`Ollama HTTP ${r.status}`);
-     const data=await r.json();
-     if(!data?.response)throw new Error('Ollama returned no response.');
-     const x=JSON.parse(data.response);
-     if(!x.title||!x.effect||!x.system_description)throw new Error('Ollama response was missing required loot fields.');
-     return x;
-   }finally{clearTimeout(timer)}
- }
- function formatAILoot(x,tier){
-   const approval=x.gm_approval_required?' [HOMEBREW / GM APPROVAL REQUIRED]':'';
-   return `${x.title}\nCategory: ${x.category||'Equipment / Utility'}\nTier: ${x.tier||tier}\nQuantity: ${Number(x.quantity)||1}\nEffect: ${x.effect}${approval}\nSystem Description: ${x.system_description}`;
- }
- function localLoot(c,tier,request){
-   const req=String(request||'').trim(),q=req.toLowerCase(),id=String(c.id||'').toLowerCase();
-   const pick=a=>a[Math.floor(Math.random()*a.length)], prefixes={phillip:["Appraiser's","Dealer's","Curator's"],philip:["Appraiser's","Dealer's","Curator's"],jarod:["Field Engineer's","Submariner's","Fixer's"],marvin:["Genre Savant's","Horror Nerd's","Miniature General's"],harold:["Handler's","Instigator's","Maker's"],mike:["Anomaly Hunter's","Cryptid Spotter's","Paranormal Investigator's"],brad:["Troubleshooter's","Signal Tech's","Field Technician's"]};
-   const prefix=pick(prefixes[id]||["Crawler's","Dungeon-Issue","Questionably Certified"]);
-   const theme=/demonic|hell|infernal/.test(q)?'demonic':/cursed|curse|haunted/.test(q)?'cursed':/serious|grim|military/.test(q)?'serious':/silly|funny|comedic|ridiculous|absurd/.test(q)?'funny':'system';
-   let kind='utility',slot='Utility',bases=['Multitool','Field Device','Utility Rig'];
-   const patterns=[[/monocle|eyepiece|lens/,['utility','Face / Accessory',['Monocle','Inspection Lens','Appraisal Eyepiece']]],[/cloak|cape|mantle/,['gear','Back / Clothing',['Cloak','Mantle','Cape']]],[/armor|chest|vest|jacket/,['armor','Torso / Armor',['Reinforced Vest','Crawler Jacket','Protective Harness']]],[/boot|shoe/,['gear','Feet',['Dungeon Boots','Crawler Boots','Hazard Stompers']]],[/glove|gauntlet/,['gear','Hands',['Specialist Gloves','Utility Gauntlets','Work Gloves']]],[/weapon|sword|axe|hammer|gun|rifle|bow|blade/,['weapon','Hands / Weapon',['Signature Weapon','Crawler Weapon','Problem Solver']]],[/potion|healing|heal/,['consumable','Consumable',['Healing Potion','Recovery Tonic','Emergency Health Draught']]],[/mana/,['consumable','Consumable',['Mana Potion','Arcane Refill','Mana Tonic']]],[/ring/,['accessory','Accessory',['Ring','Signet','Band']]],[/amulet|necklace/,['accessory','Accessory',['Amulet','Pendant','Charm']]],[/tool|kit|repair/,['utility','Utility / Tool',['Multitool','Repair Kit','Diagnostic Tool']]]];
-   for(const [rx,v] of patterns)if(rx.test(q)){kind=v[0];slot=v[1];bases=v[2];break}
-   const base=pick(bases), adjs={Bronze:['Serviceable','Slightly Improved','Budget'],Silver:['Enhanced','Polished','Upgraded'],Gold:['Premium','Golden','Superior'],Platinum:['Elite','Exceptional','Overqualified'],Legendary:['Legendary','Ridiculously Capable','Audience-Approved'],Celestial:['Celestial','Impossible','System-Blessed'],Custom:['Custom','Bespoke','Suspiciously Specific']};
-   const adj=pick(adjs[tier]||adjs.Custom), item=`${adj} ${prefix} ${base}`;
-   let effect;
-   if(/apprais|value|worth|inspect|identify/.test(q)) effect=pick([`Inspecting an item provides a mostly-accurate estimate of its usefulness, rarity, and approximate value. Hidden properties and exact market prices are not guaranteed.`,`When ${c.name} deliberately examines an object, the item supplies an appraisal that is usually useful and occasionally sourced from expertise of deeply questionable quality.`,`Grants improved item inspection and approximate valuation. The System may identify obvious rarity and utility while leaving particularly sneaky properties undisclosed.`]);
-   else if(/stealth|hide|sneak|invis/.test(q)) effect=pick([`Provides a modest situational benefit to hiding and moving unnoticed; exact bonus is GM-approved.`,`Helps ${c.name} avoid casual observation when deliberately sneaking or concealing themselves.`,`Improves stealth in favorable conditions, but does not make the crawler invisible.`]);
-   else if(/repair|fix|engineer|technical|electronic/.test(q)) effect=pick([`Provides a modest benefit when diagnosing or repairing appropriate technical systems.`,`Assists with field repairs, diagnostics, and improvised technical work; exact bonus is GM-approved.`,`Highlights obvious faults and useful components in mechanical or electronic systems.`]);
-   else if(/protect|armor|defen|resist/.test(q)) effect=pick([`Provides modest ${tier}-appropriate protection; exact DR or resistance is set by the GM.`,`Reduces a narrow category of incoming harm appropriate to the item's design; GM sets the final numeric benefit.`,`Offers practical defensive assistance without replacing proper armor.`]);
-   else if(/damage|attack|weapon|hit/.test(q)) effect=pick([`Provides a modest offensive benefit appropriate to ${tier} tier; final attack or damage bonus requires GM approval.`,`Improves one narrow aspect of ${c.name}'s attacks without replacing their normal combat Skill.`,`Adds a small situational combat advantage chosen by the GM when awarded.`]);
-   else effect=pick([`Provides a modest ${tier}-tier utility benefit related to the requested ${base.toLowerCase()}.`,`Offers a useful situational advantage consistent with ${c.name}'s role and the GM's request.`,`Performs the requested utility function with a small crawler-specific benefit; exact numeric bonus is GM-approved.`]);
-   const funny=[`It looks like someone gave a product designer unlimited caffeine and exactly twelve minutes of supervision. The System claims it passed quality assurance. The quality assurance department was unavailable for comment.`,`The device activates with the smug little click of something that knows it has a warranty you will never successfully redeem. Somewhere inside, a tiny mechanism applauds itself.`,`The System calls this professional equipment. The System also considers televised mortal peril a sustainable business model, so calibrate your expectations accordingly.`];
-   const desc=theme==='funny'?pick(funny):theme==='demonic'?pick([`The item is warm before you touch it. Thin symbols crawl across its surface whenever it works. The System insists this is normal. Something behind the symbols disagrees.`,`A faint sulfur smell follows the item despite there being no obvious source. It performs its task eagerly. Perhaps too eagerly.`]):theme==='cursed'?pick([`At first glance it looks ordinary. At second glance, you notice it was already looking back. The System has classified it as “probably fine.”`,`The item works exactly as advertised, which would be reassuring if it did not occasionally whisper the user's name when nobody is touching it.`]):theme==='serious'?pick([`Purpose-built, durable, and stripped of unnecessary ornamentation. The System documentation is unusually concise: maintain it, use it correctly, and it may keep you alive.`,`A practical piece of Dungeon equipment engineered for reliability rather than spectacle. Every component has a job and none of them appear interested in jokes.`]):pick([`The Dungeon System produced this specifically for ${c.name}. That is either flattering or deeply concerning. Possibly both.`,`The item looks almost normal until the System overlay identifies several features that definitely were not there a moment ago.`]);
-   return {title:`${tier} ${base} Reward`,contents:`${item}\nCategory: ${kind==='consumable'?'Consumable':'Equipment / '+slot}\nTier: ${tier}\nEffect: ${effect}\nSystem Description: ${desc}`};
- }
- document.querySelector('#generateLoot').onclick=async()=>{
-   const c=state.crawlers.find(x=>x.id===document.querySelector('#lootWho').value),tier=document.querySelector('#lootTier').value,req=document.querySelector('#lootPrompt').value.trim();
-   const btn=document.querySelector('#generateLoot');btn.disabled=true;const label=btn.textContent;btn.textContent='CONTACTING LOCAL SYSTEM AI...';
-   try{
-     const x=await generateWithOllama(c,tier,req);
-     document.querySelector('#lootTitle').value=x.title||`${tier} Reward`;
-     document.querySelector('#lootContents').value=formatAILoot(x,tier);
-     addFeed(state,`Ollama AI generated ${tier} reward draft for ${c.name}.`);state=readState();render();
-   }catch(e){
-     console.warn('Ollama unavailable; procedural fallback engaged.',e);
-     const out=localLoot(c,tier,req);
-     document.querySelector('#lootTitle').value=out.title;
-     document.querySelector('#lootContents').value=`SYSTEM AI OFFLINE — FALLBACK PERSONALITY SUBROUTINE ENGAGED\n\n${out.contents}`;
-     addFeed(state,`Local System AI unavailable; fallback generated ${tier} reward draft for ${c.name}.`);state=readState();render();
-   }finally{btn.disabled=false;btn.textContent=label}
- };
- document.querySelector('#buildLootPrompt').onclick=()=>{
-   const c=state.crawlers.find(x=>x.id===document.querySelector('#lootWho').value);
-   const tier=document.querySelector('#lootTier').value,request=document.querySelector('#lootPrompt').value.trim()||'Generate a useful, flavorful reward appropriate to this crawler.';
-   const profile=lootProfiles[c.id]||lootProfiles[String(c.name).toLowerCase()]||'Use the crawler sheet, current skills, equipment and play style as context.';
-   const skills=(c.skills||[]).map(s=>`${s[0]} Rank ${s[1]}`).join(', ');
-   const equipment=(c.equipment||[]).map(x=>x.name||x).join(', ')||'none recorded';
-   const inventory=(c.inventory||[]).map(x=>`${x.name} x${x.qty}`).join(', ')||'empty';
-   const prompt=`You are the Dungeon System loot designer for a Dungeon Crawler Carl-inspired tabletop campaign. Generate a ${tier} loot box/reward for ${c.name} (Level ${c.level}, Floor ${c.floor}).\n\nPLAYER-SAFE REAL-WORLD PROFILE:\n${profile}\n\nCURRENT SHEET:\nStats: ${Object.entries(c.stats).map(([k,v])=>`${k} ${v}`).join(', ')}\nSkills: ${skills}\nEquipment: ${equipment}\nInventory: ${inventory}\n\nGM REQUEST:\n${request}\n\nDESIGN RULES:\n- Keep the reward appropriate to a ${tier} tier and the crawler's current floor/level.\n- Personalize usefulness around their job, practical skills, hobbies, and current build without using private fears, trauma, off-limits material, or sensitive personal information.\n- Reward categories may include consumables, healing/mana resources, permanent or temporary upgrades, armor, gear, weapons, utility items, scrolls/tomes, currency, crafting materials, or intentionally strange Dungeon items.\n- Avoid simply duplicating gear already listed unless an upgrade is the point.\n- Give each item: NAME, CATEGORY, RARITY/TIER, MECHANICAL EFFECT, QUANTITY, and a short sarcastic SYSTEM DESCRIPTION.\n- Finish with a compact LOOT BOX CONTENTS list suitable for pasting into the GM console.\n- Do not invent a rules mechanic without labeling it HOMEBREW/GM APPROVAL REQUIRED.`;
-   document.querySelector('#lootBuiltPrompt').value=prompt;document.querySelector('#lootPromptResult').classList.remove('hidden');
- };
- document.querySelector('#copyLootPrompt').onclick=async()=>{const el=document.querySelector('#lootBuiltPrompt');try{await navigator.clipboard.writeText(el.value);document.querySelector('#copyLootPrompt').textContent='COPIED';setTimeout(()=>document.querySelector('#copyLootPrompt').textContent='COPY PROMPT',1200)}catch{el.select();document.execCommand('copy')}};
-
- const cfg=ollamaSettings();
- document.querySelector('#ollamaUrl').value=cfg.url;document.querySelector('#ollamaModel').value=cfg.model;
- document.querySelector('#saveOllama').onclick=()=>{localStorage.setItem('descentOllamaUrl',document.querySelector('#ollamaUrl').value.trim()||OLLAMA_DEFAULT_URL);localStorage.setItem('descentOllamaModel',document.querySelector('#ollamaModel').value.trim()||OLLAMA_DEFAULT_MODEL);document.querySelector('#ollamaStatus').textContent='LOCAL AI SETTINGS // SAVED'};
- document.querySelector('#testOllama').onclick=async()=>{
-   const status=document.querySelector('#ollamaStatus'),url=(document.querySelector('#ollamaUrl').value.trim()||OLLAMA_DEFAULT_URL).replace(/\/+$/,'');
-   status.textContent='LOCAL AI STATUS // TESTING...';
-   try{const r=await fetch(url+'/api/tags');if(!r.ok)throw new Error(`HTTP ${r.status}`);const data=await r.json(),names=(data.models||[]).map(x=>x.name);status.textContent=`LOCAL AI ONLINE // ${names.length} MODEL(S): ${names.slice(0,4).join(', ')||'none installed'}`}
-   catch(e){status.textContent='LOCAL AI OFFLINE // '+(e.message||e)}
- };
- document.querySelector('#awardLoot').onclick=async()=>{
-   const c=state.crawlers.find(x=>x.id===document.querySelector('#lootWho').value),title=document.querySelector('#lootTitle').value.trim(),contents=document.querySelector('#lootContents').value.trim();
-   if(!title||!contents)return alert('Generate or enter a reward title and contents first.');
-   c.achievements.push({name:title,reward:contents,claimStatus:'CLAIMED'});
-   const blocks=contents.split(/\n\s*\n/).filter(Boolean);
-   blocks.forEach(block=>{const lines=block.split('\n'),name=(lines[0]||'').trim();if(!name||/^GM Request Context:/i.test(name))return;const cat=(block.match(/Category:\s*(.+)/i)||[])[1]||'';const effect=(block.match(/Effect:\s*(.+)/i)||[])[1]||'';const qm=name.match(/^(.*?)(?:\s*[×x]\s*(\d+))$/i),base=(qm?qm[1]:name).trim(),qty=qm?+qm[2]:1;if(/equipment|armor|weapon|gear|utility/i.test(cat)&&!/consumable/i.test(cat)){c.equipment.push({name:base,type:cat,effect})}else{const ex=c.inventory.find(x=>String(x.name).toLowerCase()===base.toLowerCase());if(ex)ex.qty=Number(ex.qty||0)+qty;else c.inventory.push({name:base,type:cat||'Reward',qty})}});
-   try{await saveCrawlerNow(c);addFeed(state,`${c.name} claimed ${title}; generated contents were added directly to Equipment/Inventory.`);state=readState();document.querySelector('#lootTitle').value='';document.querySelector('#lootContents').value='';render()}catch(e){alert('Direct loot award failed: '+e.message)}
- };
- document.querySelector('#stageLoot').onclick=async()=>{
-   const c=state.crawlers.find(x=>x.id===document.querySelector('#lootWho').value),name=document.querySelector('#lootTitle').value.trim(),reward=document.querySelector('#lootContents').value.trim(),tier=document.querySelector('#lootTier').value;
-   if(!name||!reward)return alert('Enter both a reward title and generated contents.');
-   c.lootBoxes=c.lootBoxes||[];c.lootBoxes.push({id:`loot-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,name,tier,contents:reward,opened:false,awardedAt:new Date().toISOString()});
-   try{await saveCrawlerNow(c);addFeed(state,`${c.name} received a sealed ${tier} loot box: ${name}.`);state=readState();document.querySelector('#lootTitle').value='';document.querySelector('#lootContents').value='';render()}catch(e){alert('Loot Box staging failed: '+e.message)}
- };
- 
- document.querySelector('#reset').onclick=async()=>{if(confirm('Reset local cache on this browser? Cloud data will be loaded again.')){localStorage.removeItem(STORAGE_KEY);state=await getState();render()}};
- window.addEventListener('descent-crawler-update',e=>{const i=state.crawlers.findIndex(c=>String(c.id)===String(e.detail.id));if(i>=0)state.crawlers[i]=e.detail.data;else state.crawlers.push(e.detail.data);render()});
- window.addEventListener('descent-feed-update',()=>{const fresh=readState();if(fresh?.feed)state.feed=fresh.feed;render()});
- window.addEventListener('descent-message-update',()=>{const fresh=readState();if(fresh?.crawlers)state.crawlers=fresh.crawlers;render()});
- window.addEventListener('descent-message-refresh',()=>{const fresh=readState();if(fresh?.crawlers)state.crawlers=fresh.crawlers;render()});
- render()
-})().catch(e=>document.querySelector('#party').innerHTML=`<div class="notice">${esc(e.message)}</div>`);
+let state=await getState(),workspace='dashboard';
+const LIB_KEY='descentContentLibraryV3_2',ACTIVE_KEY='descentActiveEncounterV3_2';
+const RAW_SLOTS=['Head','Torso','Arms','Hands/Holding','Legs','Feet','Accessories'];
+const TIERS=['mundane','bronze','silver','gold','platinum','legendary','celestial'];
+const POWER={2:{Weak:1,Moderate:2,Strong:3,Overwhelming:'4+'},3:{Weak:2,Moderate:3,Strong:5,Overwhelming:'6+'},4:{Weak:2,Moderate:4,Strong:6,Overwhelming:'8+'},5:{Weak:3,Moderate:5,Strong:8,Overwhelming:'10+'},6:{Weak:3,Moderate:6,Strong:9,Overwhelming:'12+'},7:{Weak:4,Moderate:7,Strong:11,Overwhelming:'14+'}};
+const escA=esc;
+function library(){try{return JSON.parse(localStorage.getItem(LIB_KEY)||'[]')}catch{return[]}}
+function saveLibrary(x){localStorage.setItem(LIB_KEY,JSON.stringify(x))}
+function active(){try{return JSON.parse(localStorage.getItem(ACTIVE_KEY)||'null')}catch{return null}}
+function saveActive(x){x?localStorage.setItem(ACTIVE_KEY,JSON.stringify(x)):localStorage.removeItem(ACTIVE_KEY)}
+function id(prefix){return prefix+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)}
+function crawler(cid){return state.crawlers.find(c=>String(c.id)===String(cid))}
+function opts(selected=''){return state.crawlers.map(c=>`<option value="${escA(c.id)}" ${String(c.id)===String(selected)?'selected':''}>${escA(c.name)}</option>`).join('')}
+function feed(text){addFeed(state,text);state=readState()||state}
+function normalize(){for(const c of state.crawlers){c.quests=c.quests||[];c.achievements=c.achievements||[];c.lootBoxes=c.lootBoxes||[];c.messages=c.messages||[];if(c.pendingStatPoints==null)c.pendingStatPoints=0;if(c.healthSlotsRemaining==null)c.healthSlotsRemaining=10}}
+function header(){
+ normalize();const a=active(),lib=library();
+ const levels=[...new Set(state.crawlers.map(c=>c.level))],floors=[...new Set(state.crawlers.map(c=>c.floor))];
+ document.querySelector('#partySummary').textContent=`${state.crawlers.length} CRAWLERS // LV ${levels.join('/')} // FLOOR ${floors.join('/')}`;
+ document.querySelector('#encounterSummary').textContent=a?`${a.name} // ROUND ${a.round} // ${a.phase.toUpperCase()}`:'NONE';
+ document.querySelector('#librarySummary').textContent=`${lib.length} RECORD${lib.length===1?'':'S'}`;
+ document.querySelector('#gmClock').textContent=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})+' // CLOUD LIVE';
+}
+function card(c){const cm=modFor(Number(c.stats?.CON||1));return `<article class="gm-crawler-card"><div><span class="tag">${escA(c.systemTitle||'CRAWLER')}</span><h3>${escA(c.name)}</h3></div><div class="gm-minihealth">${Array.from({length:10},(_,i)=>`<i class="${i<Number(c.healthSlotsRemaining||0)?'on':''}"></i>`).join('')}</div><div class="gm-cardstats"><span>HP ${Number(c.healthSlotsRemaining||0)*cm}/${cm*10}</span><span>LV ${c.level}</span><span>F${c.floor}</span><span>${c.pendingStatPoints||0} BANKED</span></div><div class="controls"><button data-hslot="${c.id}" data-d="-1">− SLOT</button><button data-hslot="${c.id}" data-d="1">+ SLOT</button><a class="btn" href="./character.html?id=${encodeURIComponent(c.id)}">OPEN HUD</a></div></article>`}
+function dashboard(){
+ const a=active();
+ return `<section class="gm-dashboard"><div class="gm-party">${state.crawlers.map(card).join('')}</div>
+ <aside class="gm-side"><div class="panel"><div class="tag">DUNGEON FEED</div><div class="feed">${(state.feed||[]).slice(0,18).map(x=>`<div class="feeditem"><b>${escA(x.at||'')}</b><br>${escA(x.text)}</div>`).join('')}</div></div>
+ <div class="panel"><div class="tag">ENCOUNTER CONTROL</div>${a?`<h2>${escA(a.name)}</h2><div class="gm-encounter-readout"><b>ROUND ${a.round}</b><span>${escA(a.phase.toUpperCase())}</span></div><div class="controls"><button id="nextPhase" class="primary">NEXT PHASE</button><button id="endEncounter" class="danger">RESOLVE</button></div>`:`<h2>NO ACTIVE ENCOUNTER</h2><p class="muted">Stage an encounter from the Encounter workspace.</p><button data-jump="encounters" class="primary">OPEN ENCOUNTERS</button>`}</div></aside></section>`;
+}
+function actions(){
+ return `<section class="gm-two">
+ <div class="panel"><div class="tag">SYSTEM EVENT</div><h2>GM Actions</h2><div class="field"><label>Crawler</label><select id="actionWho">${opts()}</select></div><div class="field"><label>Event Type</label><select id="actionType"><option>Private System Message</option><option>Achievement</option><option>Quest</option><option>GM Notes</option><option>System Announcement</option></select></div><div class="field"><label>Title / Name</label><input id="actionTitle"></div><div class="field"><label>Message / Details</label><textarea id="actionBody" rows="7"></textarea></div><button id="deployAction" class="primary">DEPLOY EVENT</button></div>
+ <div class="panel"><div class="tag">PARTY PROGRESSION</div><h2>RAW Tutorial Controls</h2><div class="notice">Level gain banks 3 Stat Points per crawler. Tutorial Floor points remain banked until Floor 3.</div><div class="row"><div><b>Party Level</b><div class="muted small">+1 Level // +3 banked Stat Points</div></div><button id="partyLevelUp" class="primary">PARTY +1 LEVEL</button></div><div class="row"><div><b>Party Floor</b><div class="muted small">Advance all crawlers one Floor.</div></div><button id="partyFloorUp" class="primary">PARTY +1 FLOOR</button></div><hr><div class="tag">QUICK LOOT BOX</div><div class="field"><label>Crawler</label><select id="lootWho">${opts()}</select></div><div class="field"><label>Tier</label><select id="lootTier">${TIERS.slice(1).map(t=>`<option>${t}</option>`).join('')}</select></div><div class="field"><label>Name</label><input id="lootName" placeholder="Bronze Adventurer Box"></div><div class="field"><label>Contents / GM notes</label><textarea id="lootContents" rows="4"></textarea></div><button id="stageLoot">STAGE SEALED BOX</button></div></section>`;
+}
+function items(){
+ const lib=library(),items=lib.filter(x=>x.content_type==='item');
+ return `<section class="gm-library-layout"><div class="panel"><div class="tag">CONTENT WORKSHOP</div><h2>Item Definition</h2><div class="gm-formgrid">
+ <div class="field"><label>Name</label><input id="itemName"></div><div class="field"><label>Category</label><select id="itemCategory">${['gear','weapon','consumable','scroll','spellbook','quest_item','crafting','container','tool','misc'].map(x=>`<option>${x}</option>`).join('')}</select></div>
+ <div class="field"><label>Gear Slot</label><select id="itemSlot"><option value="">None</option>${RAW_SLOTS.map(x=>`<option>${x}</option>`).join('')}</select></div><div class="field"><label>Loot Tier</label><select id="itemTier">${TIERS.map(x=>`<option>${x}</option>`).join('')}</select></div>
+ <div class="field"><label>Source Authority</label><select id="itemSource"><option>THE_DESCENT</option><option>RAW_CORE</option><option>RAW_TOOLKIT</option><option>GM_CREATED</option><option>AI_GENERATED</option><option>HOMEBREW</option></select></div><div class="field"><label>Floor Minimum</label><input id="itemFloor" type="number" min="1" value="1"></div>
+ <div class="field wide"><label>System Description</label><textarea id="itemDesc" rows="3"></textarea></div><div class="field wide"><label>Mechanical Effect</label><textarea id="itemEffect" rows="3" placeholder="Structured automation comes next; record the verified effect here."></textarea></div></div>
+ <div class="controls"><button id="saveItem" class="primary">SAVE TO LIBRARY</button><button id="clearItem">CLEAR</button></div></div>
+ <div class="panel"><div class="gm-library-head"><div><span class="tag">ITEM LIBRARY</span><h2>${items.length} Definitions</h2></div><input id="itemSearch" placeholder="Search items..."></div><div id="itemList">${renderItemList(items)}</div></div></section>`;
+}
+function renderItemList(items){return items.length?items.map(x=>`<div class="gm-library-row" data-search="${escA((x.name+' '+x.category+' '+(x.gear_slot||'')+' '+x.loot_tier).toLowerCase())}"><div><b>${escA(x.name)}</b><div class="muted small">${escA(x.category.toUpperCase())} // ${escA(x.gear_slot||'NOT EQUIPPABLE')} // ${escA((x.loot_tier||'mundane').toUpperCase())}</div><div class="muted">${escA(x.system_description||'')}</div></div><div class="controls"><span class="pill">${escA(x.source_authority)}</span><button data-awarditem="${x.id}">AWARD</button><button data-deletecontent="${x.id}" class="danger">DELETE</button></div></div>`).join(''):'<p class="muted">No item definitions yet.</p>'}
+function npcs(){
+ const lib=library(),npcs=lib.filter(x=>x.content_type==='npc');
+ return `<section class="gm-library-layout"><div class="panel"><div class="tag">NPC WORKSHOP</div><h2>NPC Definition</h2><div class="gm-formgrid"><div class="field"><label>Name</label><input id="npcName"></div><div class="field"><label>Type</label><select id="npcType">${['Game Guide','Vendor','Quest NPC','Public Relations Agent','Interview/Media','Civilian','Authority','Rival Crawler','Other'].map(x=>`<option>${x}</option>`).join('')}</select></div><div class="field"><label>Floor</label><input id="npcFloor" type="number" min="1" value="1"></div><div class="field"><label>Status</label><select id="npcStatus"><option>active</option><option>friendly</option><option>neutral</option><option>hostile</option><option>missing</option><option>dead</option><option>inactive</option></select></div><div class="field"><label>Location</label><input id="npcLocation"></div><div class="field"><label>Faction</label><input id="npcFaction"></div><div class="field wide"><label>Personality / Behavior</label><textarea id="npcPersonality" rows="4"></textarea></div><div class="field wide"><label>GM Secrets / Restrictions</label><textarea id="npcSecrets" rows="4"></textarea></div></div><button id="saveNpc" class="primary">SAVE NPC</button></div>
+ <div class="panel"><span class="tag">NPC DIRECTORY</span><h2>${npcs.length} Records</h2>${npcs.length?npcs.map(x=>`<div class="gm-library-row"><div><b>${escA(x.name)}</b><div class="muted small">${escA(x.npc_type)} // FLOOR ${x.floor||'—'} // ${escA(x.status)}</div><div class="muted">${escA(x.location||'Location not set')}</div></div><div class="controls"><span class="pill">${escA(x.source_authority)}</span><button data-deletecontent="${x.id}" class="danger">DELETE</button></div></div>`).join(''):'<p class="muted">No NPC records yet.</p>'}</div></section>`;
+}
+function encounters(){
+ const lib=library(),encs=lib.filter(x=>x.content_type==='encounter'),a=active();
+ return `<section class="gm-library-layout"><div class="panel"><div class="tag">ENCOUNTER WORKSHOP</div><h2>Encounter Definition</h2><div class="gm-formgrid"><div class="field"><label>Name</label><input id="encName"></div><div class="field"><label>Type</label><select id="encType">${['combat','boss','trap','social','exploration','chase','mixed'].map(x=>`<option>${x}</option>`).join('')}</select></div><div class="field"><label>Floor</label><input id="encFloor" type="number" min="1" value="${state.crawlers[0]?.floor||1}"></div><div class="field"><label>Power Band</label><select id="encPower"><option>Weak</option><option selected>Moderate</option><option>Strong</option><option>Overwhelming</option></select></div><div class="field"><label>Party Size</label><input id="encParty" type="number" min="2" max="7" value="${Math.min(7,Math.max(2,state.crawlers.length))}"></div><div class="field"><label>Adversary Count</label><input id="encCount" type="number" min="0" value="${Math.min(7,Math.max(2,state.crawlers.length))}"></div><div class="field wide"><label>System Announcement</label><textarea id="encAnnouncement" rows="3"></textarea></div><div class="field wide"><label>Objectives</label><textarea id="encObjectives" rows="3" placeholder="One objective per line"></textarea></div><div class="field wide"><label>GM Notes / Special Rules</label><textarea id="encNotes" rows="4"></textarea></div></div><div id="powerHint" class="notice"></div><button id="saveEncounter" class="primary">SAVE ENCOUNTER</button></div>
+ <div class="panel"><span class="tag">ENCOUNTER LIBRARY</span><h2>${encs.length} Definitions</h2>${a?`<div class="notice"><b>ACTIVE:</b> ${escA(a.name)} // ROUND ${a.round} // ${escA(a.phase.toUpperCase())}</div>`:''}${encs.length?encs.map(x=>`<div class="gm-library-row"><div><b>${escA(x.name)}</b><div class="muted small">${escA(x.encounter_type.toUpperCase())} // FLOOR ${x.floor} // ${escA(x.power_band||'')}</div><div class="muted">${escA(x.system_announcement||'')}</div></div><div class="controls"><button data-deployenc="${x.id}" class="primary">DEPLOY</button><button data-deletecontent="${x.id}" class="danger">DELETE</button></div></div>`).join(''):'<p class="muted">No encounter definitions yet.</p>'}</div></section>`;
+}
+function tables(){
+ return `<section class="gm-two"><div class="panel"><span class="tag">RAW REFERENCE</span><h2>Adversary Power</h2><div class="gm-tablewrap"><table><thead><tr><th>Party</th><th>Weak</th><th>Moderate</th><th>Strong</th><th>Overwhelming</th></tr></thead><tbody>${Object.entries(POWER).map(([p,v])=>`<tr><td>${p}</td><td>${v.Weak}</td><td>${v.Moderate}</td><td>${v.Strong}</td><td>${v.Overwhelming}</td></tr>`).join('')}</tbody></table></div><p class="muted small">RAW starting point only. GM adjustment remains authoritative.</p></div><div class="panel"><span class="tag">DICE TABLE</span><h2>Quick Roller</h2><div class="controls">${[4,6,8,10,12,20,100].map(d=>`<button data-die="${d}">d${d}</button>`).join('')}</div><div class="gm-roll" id="tableRoll">—</div><div class="notice">Custom campaign tables will become saved Content Engine records in the next iteration.</div></div></section>`;
+}
+function render(){
+ header();document.querySelectorAll('[data-workspace]').forEach(b=>b.classList.toggle('active',b.dataset.workspace===workspace));
+ const w=document.querySelector('#workspace');w.innerHTML=workspace==='dashboard'?dashboard():workspace==='actions'?actions():workspace==='items'?items():workspace==='npcs'?npcs():workspace==='encounters'?encounters():tables();
+ bind();
+}
+async function saveC(c,msg){await saveCrawlerNow(c);if(msg)feed(msg);state=readState()||state;render()}
+function bind(){
+ document.querySelectorAll('[data-jump]').forEach(b=>b.onclick=()=>{workspace=b.dataset.jump;render()});
+ document.querySelectorAll('[data-hslot]').forEach(b=>b.onclick=async()=>{const c=crawler(b.dataset.hslot);c.healthSlotsRemaining=Math.max(0,Math.min(10,Number(c.healthSlotsRemaining||0)+Number(b.dataset.d)));await saveC(c,`${c.name} Health Bar adjusted to ${c.healthSlotsRemaining}/10 slots by GM.`)});
+ document.querySelector('#nextPhase')?.addEventListener('click',()=>{const a=active();if(!a)return;if(a.phase==='mobs')a.phase='crawlers';else{a.phase='mobs';a.round++}saveActive(a);feed(`Encounter ${a.name} advanced to Round ${a.round}, ${a.phase} phase.`);render()});
+ document.querySelector('#endEncounter')?.addEventListener('click',()=>{const a=active();if(a&&confirm(`Resolve ${a.name}?`)){feed(`Encounter resolved: ${a.name}.`);saveActive(null);render()}});
+ document.querySelector('#deployAction')?.addEventListener('click',async()=>{const c=crawler(document.querySelector('#actionWho').value),type=document.querySelector('#actionType').value,title=document.querySelector('#actionTitle').value.trim(),body=document.querySelector('#actionBody').value.trim();if(!body&&!title)return alert('Enter event content.');if(type==='Private System Message'){await sendPrivateSystemMessage(c.id,body||title);feed(`${c.name} received a private System message.`)}else if(type==='Achievement'){c.achievements.push({name:title||'Achievement',reward:body,claimStatus:'UNCLAIMED'});await saveC(c,`${c.name} received achievement: ${title||'Achievement'}.`);return}else if(type==='Quest'){c.quests.push({name:title||'Quest',detail:body,status:'ACTIVE'});await saveC(c,`${c.name} received quest: ${title||'Quest'}.`);return}else if(type==='GM Notes'){c.notes=body;await saveC(c,`${c.name} GM Notes updated.`);return}else{for(const x of state.crawlers)await sendPrivateSystemMessage(x.id,`SYSTEM ANNOUNCEMENT${title?' // '+title:''}\n${body}`);feed(`System announcement deployed to the party: ${title||body.slice(0,40)}.`)}state=readState()||state;render()});
+ document.querySelector('#partyLevelUp')?.addEventListener('click',async()=>{if(!confirm('Advance every crawler +1 Level and bank +3 Stat Points?'))return;for(const c of state.crawlers){c.level=Number(c.level||1)+1;c.pendingStatPoints=Number(c.pendingStatPoints||0)+3;await saveCrawlerNow(c)}feed('Party advanced +1 Level. Each crawler banked 3 Stat Points.');state=readState()||state;render()});
+ document.querySelector('#partyFloorUp')?.addEventListener('click',async()=>{if(!confirm('Advance every crawler +1 Floor?'))return;for(const c of state.crawlers){c.floor=Number(c.floor||1)+1;await saveCrawlerNow(c)}feed('Party advanced +1 Floor.');state=readState()||state;render()});
+ document.querySelector('#stageLoot')?.addEventListener('click',async()=>{const c=crawler(document.querySelector('#lootWho').value),tier=document.querySelector('#lootTier').value,name=document.querySelector('#lootName').value.trim(),contents=document.querySelector('#lootContents').value.trim();if(!name)return alert('Enter a loot box name.');c.lootBoxes.push({id:id('loot'),name,tier,contents,opened:false,awardedAt:new Date().toISOString()});await saveC(c,`${c.name} received sealed ${tier} loot box: ${name}.`)});
+ document.querySelector('#saveItem')?.addEventListener('click',()=>{const name=document.querySelector('#itemName').value.trim();if(!name)return alert('Item name required.');const x={schema_version:'1.0',content_type:'item',id:id('item'),name,category:document.querySelector('#itemCategory').value,gear_slot:document.querySelector('#itemSlot').value||null,loot_tier:document.querySelector('#itemTier').value,floor_min:Number(document.querySelector('#itemFloor').value||1),source_authority:document.querySelector('#itemSource').value,system_description:document.querySelector('#itemDesc').value.trim(),mechanics:{notes:document.querySelector('#itemEffect').value.trim()},gm_approval_required:['AI_GENERATED','HOMEBREW'].includes(document.querySelector('#itemSource').value)};const lib=library();lib.push(x);saveLibrary(lib);feed(`Content Library saved item: ${name}.`);render()});
+ document.querySelector('#itemSearch')?.addEventListener('input',e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('#itemList [data-search]').forEach(r=>r.classList.toggle('hidden',!r.dataset.search.includes(q)))});
+ document.querySelectorAll('[data-awarditem]').forEach(b=>b.onclick=async()=>{const x=library().find(z=>z.id===b.dataset.awarditem);if(!x)return;const who=prompt('Award to crawler ID or exact crawler name:',state.crawlers[0]?.name||'');const c=state.crawlers.find(z=>String(z.id).toLowerCase()===String(who).toLowerCase()||String(z.name).toLowerCase()===String(who).toLowerCase());if(!c)return alert('Crawler not found.');c.inventory=c.inventory||[];c.inventory.push({id:id('owned'),definition_id:x.id,name:x.name,category:x.category==='gear'||x.category==='weapon'?'Equipment':x.category==='consumable'?'Consumable':'Other',type:x.category,gearSlot:x.gear_slot||'',qty:1,effect:x.mechanics?.notes||'',sourceAuthority:x.source_authority});await saveC(c,`${c.name} received item: ${x.name}.`)});
+ document.querySelector('#saveNpc')?.addEventListener('click',()=>{const name=document.querySelector('#npcName').value.trim();if(!name)return alert('NPC name required.');const x={schema_version:'1.0',content_type:'npc',id:id('npc'),name,npc_type:document.querySelector('#npcType').value,floor:Number(document.querySelector('#npcFloor').value||1),status:document.querySelector('#npcStatus').value,location:document.querySelector('#npcLocation').value.trim(),faction:document.querySelector('#npcFaction').value.trim(),personality:document.querySelector('#npcPersonality').value.trim(),secrets:document.querySelector('#npcSecrets').value.trim().split('\n').filter(Boolean),source_authority:'THE_DESCENT',gm_approval_required:false};const lib=library();lib.push(x);saveLibrary(lib);feed(`Content Library saved NPC: ${name}.`);render()});
+ function hint(){const p=Number(document.querySelector('#encParty')?.value||0),band=document.querySelector('#encPower')?.value,el=document.querySelector('#powerHint');if(!el)return;el.innerHTML=POWER[p]?`RAW starting point for <b>${p}</b> crawlers at <b>${band}</b>: <b>${POWER[p][band]} Mobs</b>. This is guidance, not an automatic difficulty guarantee.`:'RAW Adversary Power reference covers party sizes 2–7.'}
+ document.querySelector('#encParty')?.addEventListener('input',hint);document.querySelector('#encPower')?.addEventListener('change',hint);hint();
+ document.querySelector('#saveEncounter')?.addEventListener('click',()=>{const name=document.querySelector('#encName').value.trim();if(!name)return alert('Encounter name required.');const x={schema_version:'1.0',content_type:'encounter',id:id('enc'),name,encounter_type:document.querySelector('#encType').value,floor:Number(document.querySelector('#encFloor').value||1),power_band:document.querySelector('#encPower').value,party_size_reference:Number(document.querySelector('#encParty').value||state.crawlers.length),participants:[{kind:'dynamic',definition_id:null,count:Number(document.querySelector('#encCount').value||0),role:'adversaries'}],system_announcement:document.querySelector('#encAnnouncement').value.trim(),objectives:document.querySelector('#encObjectives').value.split('\n').filter(Boolean).map((t,i)=>({id:'obj_'+(i+1),text:t,required:true,hidden:false})),environment:{special_rules:document.querySelector('#encNotes').value.trim()?[{text:document.querySelector('#encNotes').value.trim()}]:[]},source_authority:'THE_DESCENT',gm_approval_required:false};const lib=library();lib.push(x);saveLibrary(lib);feed(`Content Library saved encounter: ${name}.`);render()});
+ document.querySelectorAll('[data-deployenc]').forEach(b=>b.onclick=()=>{const x=library().find(z=>z.id===b.dataset.deployenc);if(!x)return;if(active()&&!confirm('Replace the currently active encounter?'))return;const runtime={instance_id:id('active'),definition_id:x.id,name:x.name,status:'active',round:1,phase:'mobs',floor:x.floor,party_size:state.crawlers.length,participants:state.crawlers.map(c=>({participant_id:'crawler_'+c.id,crawler_id:c.id,name:c.name,health:{slots_max:10,slots_current:c.healthSlotsRemaining}})),actions_remaining:Object.fromEntries(state.crawlers.map(c=>[c.id,2])),objective_state:Object.fromEntries((x.objectives||[]).map(o=>[o.id,'active'])),event_log:[],started_at:new Date().toISOString()};saveActive(runtime);feed(`Encounter deployed: ${x.name}. Round 1 begins with the Mob phase unless crawlers achieved surprise.`);render()});
+ document.querySelectorAll('[data-deletecontent]').forEach(b=>b.onclick=()=>{const lib=library(),x=lib.find(z=>z.id===b.dataset.deletecontent);if(x&&confirm(`Delete ${x.name} from local Content Library?`)){saveLibrary(lib.filter(z=>z.id!==x.id));render()}});
+ document.querySelectorAll('[data-die]').forEach(b=>b.onclick=()=>{const d=Number(b.dataset.die),r=Math.floor(Math.random()*d)+1;document.querySelector('#tableRoll').textContent=`d${d} → ${r}`});
+}
+document.querySelector('#workspaceNav').onclick=e=>{const b=e.target.closest('[data-workspace]');if(b){workspace=b.dataset.workspace;render()}};
+window.addEventListener('descent-crawler-update',e=>{const i=state.crawlers.findIndex(c=>String(c.id)===String(e.detail.id));if(i>=0){const msgs=state.crawlers[i].messages||[];state.crawlers[i]=e.detail.data;state.crawlers[i].messages=msgs}else state.crawlers.push(e.detail.data);render()});
+window.addEventListener('descent-feed-update',()=>{const s=readState();if(s?.feed)state.feed=s.feed;render()});
+window.addEventListener('descent-message-update',()=>{const s=readState();if(s?.crawlers)state.crawlers=s.crawlers;render()});
+setInterval(header,30000);render();
+})().catch(e=>document.querySelector('#workspace').innerHTML=`<div class="notice">${esc(e.message)}</div>`);
