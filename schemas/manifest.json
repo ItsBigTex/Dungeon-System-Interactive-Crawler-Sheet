@@ -9,6 +9,9 @@
     "crawler-item-instance-v1.0.schema.json",
     "adversary-definition-v1.0.schema.json",
     "npc-definition-v1.0.schema.json",
-    "encounter-participant-v1.0.schema.json"
+    "encounter-participant-v1.0.schema.json",
+    "encounter-definition-v1.0.schema.json",
+    "active-encounter-v1.0.schema.json",
+    "adversary-power-reference-v1.0.json"
   ]
 }
