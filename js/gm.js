@@ -1,4 +1,4 @@
-window.DESCENT_GM_BUILD='4.0.2';
+window.DESCENT_GM_BUILD='4.0.2.1';
 (async()=>{
 let state=await getState(),workspace='dashboard';
 let aiDraft=null;
@@ -193,7 +193,7 @@ function aiRequestedConstraints(type,request){
  const c={};
  const pick=(label)=>{const m=request.match(new RegExp('(?:^|\\n)\\s*'+label+'\\s*:\\s*([^\\n]+)','i'));return m?m[1].trim():null};
  c.name=pick('Name');c.tier=pick('(?:Tier|Rarity(?:\\/Tier)?)');c.category=pick('Category');c.damage_type=pick('Damage Type');c.damage=pick('Damage Dice');c.floor=pick('Floor');
- const delegated=v=>v&&/^(ai\s*(?:decide|chooses?|generate)|generate|decide|you decide|appropriate)$/i.test(v.trim());
+ const delegated=v=>v&&/^(?:ai\s*(?:decide|chooses?|generate)|generate|decide|you\s+decide|appropriate)(?:\b|\s|[.,:;!?-]).*$/i.test(v.trim());
  for(const k of Object.keys(c))if(delegated(c[k]))c[k]='__AI_DECIDE__';
  return c;
 }
@@ -340,7 +340,7 @@ function bind(){
  document.querySelectorAll('[data-jump]').forEach(b=>b.onclick=()=>{workspace=b.dataset.jump;render()});
 
  document.querySelector('#aiSaveCfg')?.addEventListener('click',()=>{saveAiCfg({url:document.querySelector('#aiUrl').value.trim()||'http://localhost:11434',model:document.querySelector('#aiModel').value.trim()||'llama3.2:3b'});alert('Local AI settings saved in this browser.')});
- document.querySelector('#aiGenerate')?.addEventListener('click',async()=>{const b=document.querySelector('#aiGenerate'),type=document.querySelector('#aiType').value,request=document.querySelector('#aiRequest').value.trim();if(!request)return alert('Describe what you want the AI to draft.');b.disabled=true;b.textContent='GENERATING…';try{const x=await ollamaGenerate(type,request);x.content_type=type;x.schema_version='1.0';x.id='draft_'+Date.now();x.source_authority='AI_GENERATED';x.gm_approval_required=true;x._generation_request=request;aiValidate(x,type,request);aiDraft=x;render()}catch(e){alert('LOCAL AI OFFLINE OR INVALID RESPONSE\\n\\n'+e.message+'\\n\\nStart Ollama with the included launcher and confirm the selected model is installed.')}finally{if(document.querySelector('#aiGenerate')){b.disabled=false;b.textContent='GENERATE DRAFT'}}});
+ document.querySelector('#aiGenerate')?.addEventListener('click',async()=>{const b=document.querySelector('#aiGenerate'),type=document.querySelector('#aiType').value,request=document.querySelector('#aiRequest').value.trim();if(!request)return alert('Describe what you want the AI to draft.');b.disabled=true;b.textContent='GENERATING…';try{const x=await ollamaGenerate(type,request);x.content_type=type;x.schema_version='1.0';x.id='draft_'+Date.now();x.source_authority='AI_GENERATED';x.gm_approval_required=true;x._generation_request=request;aiValidate(x,type,request);aiDraft=x;render()}catch(e){const validation=/failed validation/i.test(e.message);alert((validation?'AI DRAFT FAILED VALIDATION':'LOCAL AI OFFLINE OR INVALID RESPONSE')+'\n\n'+e.message+'\n\n'+(validation?'Ollama responded, but the draft still violated one or more GM constraints after automatic repair. Review the validation failures above.':'Start Ollama with the included launcher and confirm the selected model is installed.'))}finally{if(document.querySelector('#aiGenerate')){b.disabled=false;b.textContent='GENERATE DRAFT'}}});
  document.querySelector('#aiClear')?.addEventListener('click',()=>{aiDraft=null;render()});
  document.querySelector('#aiRevalidate')?.addEventListener('click',()=>{try{aiDraft=JSON.parse(document.querySelector('#aiDraftJson').value);aiValidate(aiDraft,aiDraft.content_type,aiDraft._generation_request||'');render()}catch(e){alert('Draft JSON is invalid: '+e.message)}});
  document.querySelector('#aiApprove')?.addEventListener('click',()=>{try{const x=JSON.parse(document.querySelector('#aiDraftJson').value),v=aiValidate(x,x.content_type,x._generation_request||'');if(v.errors.length)return alert('Fix validation errors first:\\n'+v.errors.join('\\n'));delete x._generation_request;x.id=id(x.content_type==='loot_box'?'lootboxdef':x.content_type);x.schema_version='1.0';x.source_authority='AI_GENERATED';x.gm_approval_required=false;x.gm_approved_at=new Date().toISOString();x.gm_approved=true;const lib=library();lib.push(x);saveLibrary(lib);feed(`GM approved AI draft into Content Engine: ${x.name}.`);queueEvent({event_type:'content_created',title:x.name,body:'AI-generated draft approved by GM.',related_object_type:x.content_type,related_object_id:x.id,status:'recorded',source_authority:'AI_GENERATED'});aiDraft=null;alert('Approved and saved to the Content Engine.');render()}catch(e){alert('Cannot approve draft: '+e.message)}});
