@@ -1,4 +1,4 @@
-window.DESCENT_GM_BUILD='4.0';
+window.DESCENT_GM_BUILD='4.0.2';
 (async()=>{
 let state=await getState(),workspace='dashboard';
 let aiDraft=null;
@@ -110,16 +110,40 @@ function actions(){
  <div class="panel"><div class="tag">SYSTEM EVENT</div><h2>GM Actions</h2><div class="field"><label>Crawler</label><select id="actionWho">${opts()}</select></div><div class="field"><label>Event Type</label><select id="actionType"><option>Private System Message</option><option>Achievement</option><option>Quest</option><option>GM Notes</option><option>System Announcement</option></select></div><div class="field"><label>Title / Name</label><input id="actionTitle"></div><div class="field"><label>Message / Details</label><textarea id="actionBody" rows="7"></textarea></div><button id="deployAction" class="primary">DEPLOY EVENT</button></div>
  <div class="panel"><div class="tag">PARTY PROGRESSION</div><h2>RAW Tutorial Controls</h2><div class="notice">Level gain banks 3 Stat Points per crawler. Tutorial Floor points remain banked until Floor 3.</div><div class="row"><div><b>Party Level</b><div class="muted small">+1 Level // +3 banked Stat Points</div></div><button id="partyLevelUp" class="primary">PARTY +1 LEVEL</button></div><div class="row"><div><b>Party Floor</b><div class="muted small">Advance all crawlers one Floor.</div></div><button id="partyFloorUp" class="primary">PARTY +1 FLOOR</button></div><hr><div class="tag">QUICK LOOT BOX</div><div class="field"><label>Crawler</label><select id="lootWho">${opts()}</select></div><div class="field"><label>Tier</label><select id="lootTier">${TIERS.slice(1).map(t=>`<option>${t}</option>`).join('')}</select></div><div class="field"><label>Name</label><input id="lootName" placeholder="Bronze Adventurer Box"></div><div class="field"><label>Contents / GM notes</label><textarea id="lootContents" rows="4"></textarea></div><button id="stageLoot">STAGE SEALED BOX</button></div></section>`;
 }
+function gmEffectSummary(x){
+ const m=x?.mechanics||{},parts=[];
+ const mods=m.stat_modifiers||m.stats||{};
+ for(const [k,v] of Object.entries(mods))if(Number(v))parts.push(`${k} ${Number(v)>0?'+':''}${v}`);
+ if(Number(m.dr||0))parts.push(`DR +${m.dr}`);
+ if(Number(m.evade||0))parts.push(`EVADE +${m.evade}`);
+ if(Number(m.health_bar_slots||m.health_slots||0))parts.push(`HEALTH SLOTS +${m.health_bar_slots||m.health_slots}`);
+ if(Array.isArray(m.granted_skills)&&m.granted_skills.length)parts.push(`SKILLS: ${m.granted_skills.join(', ')}`);
+ if(Array.isArray(m.granted_spells)&&m.granted_spells.length)parts.push(`SPELLS: ${m.granted_spells.join(', ')}`);
+ if(m.consumable?.effect)parts.push(String(m.consumable.effect));
+ if(m.notes)parts.push(String(m.notes));
+ return parts.join(' // ')||x?.mechanical_effect||x?.effect||'No mechanical effect recorded.';
+}
+function gmQuestPlan(x){
+ const parts=[];
+ if(x.gm_end_goal)parts.push(`<div><b>END GOAL</b> — ${escA(x.gm_end_goal)}</div>`);
+ if(x.retrieval_target)parts.push(`<div><b>RETRIEVAL TARGET</b> — ${escA(x.retrieval_target)}</div>`);
+ const trig=x.triggered_encounter||x.encounter_id||x.encounter_name;
+ if(trig)parts.push(`<div><b>TRIGGERED ENCOUNTER</b> — ${escA(typeof trig==='string'?trig:JSON.stringify(trig))}</div>`);
+ const boss=x.boss_id||x.boss_name;
+ if(boss)parts.push(`<div><b>BOSS</b> — ${escA(boss)}</div>`);
+ if(x.gm_notes)parts.push(`<div><b>GM NOTES</b> — ${escA(x.gm_notes)}</div>`);
+ return parts.length?`<div class="notice small">${parts.join('')}</div>`:'';
+}
 function rewards(){
  const lib=library(),qs=lib.filter(x=>x.content_type==='quest'),as=lib.filter(x=>x.content_type==='achievement'),ls=lib.filter(x=>x.content_type==='loot_box'),events=lib.filter(x=>x.content_type==='system_event');
  return `<section class="gm-rewards">
  <div class="gm-rewardtabs">
- <div class="panel"><span class="tag">QUEST WORKSHOP</span><h2>Quest Definition</h2><div class="field"><label>Name</label><input id="rwQuestName"></div><div class="field"><label>Scope</label><select id="rwQuestScope"><option>Individual</option><option>Group</option></select></div><div class="field"><label>Description</label><textarea id="rwQuestDesc" rows="3"></textarea></div><div class="field"><label>Objectives — one per line</label><textarea id="rwQuestObj" rows="4"></textarea></div><div class="field"><label>Completion / Reward Notes</label><textarea id="rwQuestReward" rows="3"></textarea></div><button id="saveQuestDef" class="primary">SAVE QUEST</button></div>
+ <div class="panel"><span class="tag">QUEST WORKSHOP</span><h2>Quest Definition</h2><div class="field"><label>Name</label><input id="rwQuestName"></div><div class="field"><label>Scope</label><select id="rwQuestScope"><option>Individual</option><option>Group</option></select></div><div class="field"><label>Description</label><textarea id="rwQuestDesc" rows="3"></textarea></div><div class="field"><label>Objectives — one per line</label><textarea id="rwQuestObj" rows="4"></textarea></div><div class="field"><label>Completion / Reward Notes</label><textarea id="rwQuestReward" rows="3"></textarea></div><div class="field"><label>GM End Goal</label><textarea id="rwQuestEndGoal" rows="3" placeholder="What is this quest actually trying to make happen?"></textarea></div><div class="field"><label>Retrieval Target (if any)</label><input id="rwQuestTarget" placeholder="Exact object/person/evidence the party must find"></div><div class="field"><label>Triggered Encounter / Boss (if any)</label><input id="rwQuestEncounter" placeholder="Encounter or boss definition ID / exact name"></div><button id="saveQuestDef" class="primary">SAVE QUEST</button></div>
  <div class="panel"><span class="tag">ACHIEVEMENT WORKSHOP</span><h2>Achievement Definition</h2><div class="field"><label>Name</label><input id="rwAchName"></div><div class="field"><label>Description / System Quip</label><textarea id="rwAchDesc" rows="4"></textarea></div><div class="field"><label>Reward Box</label><select id="rwAchBox"><option value="">No tangible reward</option>${TIERS.slice(1).map(t=>`<option>${t}</option>`).join('')}</select></div><div class="field"><label>Box Name</label><input id="rwAchBoxName" placeholder="Adventurer's Box"></div><div class="field"><label>GM-only Contents</label><textarea id="rwAchContents" rows="3"></textarea></div><button id="saveAchievementDef" class="primary">SAVE ACHIEVEMENT</button></div>
  <div class="panel"><span class="tag">LOOT BOX WORKSHOP</span><h2>Loot Box Definition</h2><div class="field"><label>Name</label><input id="rwBoxName"></div><div class="field"><label>Tier</label><select id="rwBoxTier">${TIERS.slice(1).map(t=>`<option>${t}</option>`).join('')}</select></div><div class="field"><label>Box Type</label><input id="rwBoxType" value="Adventurer"></div><div class="field"><label>Contents / GM Notes</label><textarea id="rwBoxContents" rows="4"></textarea></div><button id="saveBoxDef" class="primary">SAVE LOOT BOX</button></div>
  </div>
  <div class="panel"><div class="gm-library-head"><div><span class="tag">QUEST / REWARD LIBRARY</span><h2>${qs.length+as.length+ls.length} Definitions</h2></div><select id="rewardFilter"><option value="all">ALL</option><option value="quest">QUESTS</option><option value="achievement">ACHIEVEMENTS</option><option value="loot_box">LOOT BOXES</option></select></div>
- <div id="rewardList">${[...qs,...as,...ls].map(x=>`<div class="gm-library-row" data-rwtype="${x.content_type}"><div><b>${escA(x.name)}</b><div class="muted small">${escA(x.content_type.toUpperCase().replace('_',' '))} // ${escA(x.source_authority||'THE_DESCENT')}</div><div class="muted">${escA(x.description||x.contents||'')}</div></div><div class="controls"><button data-deployreward="${x.id}" class="primary">DEPLOY</button><button data-deletecontent="${x.id}" class="danger">DELETE</button></div></div>`).join('')||'<p class="muted">No Quest/Reward definitions yet.</p>'}</div></div>
+ <div id="rewardList">${[...qs,...as,...ls].map(x=>`<div class="gm-library-row" data-rwtype="${x.content_type}"><div><b>${escA(x.name)}</b><div class="muted small">${escA(x.content_type.toUpperCase().replace('_',' '))} // ${escA(x.source_authority||'THE_DESCENT')}</div><div class="muted">${escA(x.description||x.contents||'')}</div>${x.content_type==='quest'?`<div class="muted small"><b>OBJECTIVES</b> // ${(x.objectives||[]).map(o=>escA(o.text||o)).join(' → ')||'None recorded'}</div>${gmQuestPlan(x)}<div class="muted small"><b>REWARD</b> // ${escA(x.reward_notes||'None recorded')}</div>`:''}</div><div class="controls"><button data-deployreward="${x.id}" class="primary">DEPLOY</button><button data-deletecontent="${x.id}" class="danger">DELETE</button></div></div>`).join('')||'<p class="muted">No Quest/Reward definitions yet.</p>'}</div></div>
  <div class="panel"><span class="tag">SYSTEM EVENT QUEUE</span><h2>${events.length} Recorded Events</h2><div class="gm-eventqueue">${events.slice().reverse().slice(0,25).map(e=>`<div class="feeditem"><b>${escA(e.event_type)} // ${escA(e.status)}</b><br>${escA(e.title||'')}${e.recipient_name?' → '+escA(e.recipient_name):''}<div class="muted small">${escA(e.created_at||'')}</div></div>`).join('')||'<p class="muted">No structured System events yet.</p>'}</div></div>
  </section>`;
 }
@@ -150,7 +174,7 @@ function aiReference(type){
   'Encounter power bands use the supplied Adversary Power reference as a starting point, not a guarantee.',
   'Achievement structure: Name, Description, Reward, and GM-only Contents. Reward may be null.',
   'Loot Boxes use bronze/silver/gold/platinum/legendary/celestial tiers.',
-  'Quest content should distinguish Individual or Group scope and structured objectives.'
+  'Quest content should distinguish Individual or Group scope and structured objectives. Every generated quest must also include gm_end_goal, retrieval_target when applicable, and triggered_encounter / boss reference when applicable.'
  ]};
 }
 function aiSchemaHint(type){
@@ -159,33 +183,90 @@ function aiSchemaHint(type){
  adversary:{...base,species_type:'string',classification:'Mob',size:{name:'Medium',value:1},health_bar:{slots:3},level:1,surprise:'11+F',evade:'11+F',move:'20+S',dr:0,stats:{STR:1,INT:1,CON:1,DEX:1,CHA:1},attacks:[{name:'Attack',to_hit:'11+F',damage:'1d6',damage_type:'Physical',range:'5ft',other_effects:[]}],special_rules:[],notes:[],ai_announcement:'string'},
  encounter:{...base,encounter_type:'combat',floor:1,power_band:'Moderate',party_size_reference:6,participants:[{kind:'adversary',definition_id:null,count:6,role:'adversaries',template:{name:'string',health_slots:3,evade:'11+F',dr:0,attacks:[]}}],system_announcement:'string',objectives:[{id:'obj_1',text:'string',required:true,hidden:false}],environment:{special_rules:[]}},
  npc:{...base,npc_type:'Quest NPC',floor:1,status:'Active',location:'string',faction:'string',personality:'string',motivation:'string',behavior_rules:[],restrictions:[],dialogue_cues:[],secrets:[],quest_hooks:[]},
- item:{...base,category:'gear',description:'string',system_description:'string',gear_slot:null,loot_tier:'bronze',floor_min:1,mechanics:{notes:'string'},tags:[]},
+ item:{...base,category:'weapon',description:'player-facing physical description',system_description:'fully written System AI item description, not writing instructions',gear_slot:null,loot_tier:'bronze',floor_min:1,mechanics:{stat_modifiers:{},skill_modifiers:{},dr:0,evade:0,health_bar_slots:0,mana:0,weapon:{weapon_type:'string or null',attack_skill:'string or null',damage:'1D8',damage_type:'Piercing',range:'Melee',ammo_required:false,ammo_type:null,capacity:null,reload:null},passive_effects:[],activated_effects:[],trigger_conditions:[],duration:null,cooldown:null,charges:null,limitations:[],campaign_rules:[],notes:'GM-facing adjudication and balance notes'},tags:[]},
  quest:{...base,scope:'Individual',description:'string',objectives:[{id:'obj_1',text:'string',required:true}],reward_notes:'string'},
  achievement:{...base,description:'string',reward:null,contents:'string'},
  loot_box:{...base,tier:'bronze',box_type:'Adventurer',contents:'string'}
  };return hints[type];
 }
-function aiValidate(x,type){
- const errors=[],flags=[...(Array.isArray(x?.review_flags)?x.review_flags:[])];
+function aiRequestedConstraints(type,request){
+ const c={};
+ const pick=(label)=>{const m=request.match(new RegExp('(?:^|\\n)\\s*'+label+'\\s*:\\s*([^\\n]+)','i'));return m?m[1].trim():null};
+ c.name=pick('Name');c.tier=pick('(?:Tier|Rarity(?:\\/Tier)?)');c.category=pick('Category');c.damage_type=pick('Damage Type');c.damage=pick('Damage Dice');c.floor=pick('Floor');
+ const delegated=v=>v&&/^(ai\s*(?:decide|chooses?|generate)|generate|decide|you decide|appropriate)$/i.test(v.trim());
+ for(const k of Object.keys(c))if(delegated(c[k]))c[k]='__AI_DECIDE__';
+ return c;
+}
+function aiValidate(x,type,request=''){
+ const errors=[],flags=[...(Array.isArray(x?.review_flags)?x.review_flags:[])],c=aiRequestedConstraints(type,request);
  if(!x||typeof x!=='object')errors.push('Generator did not return a JSON object.');
  if(x?.content_type!==type)errors.push(`content_type must be ${type}.`);
  if(!String(x?.name||'').trim())errors.push('name is required.');
+ if(/ai\s*(decide|choose|generate)/i.test(String(x?.name||'')))errors.push('AI-delegated name was not actually generated.');
  if(type==='adversary'){for(const k of ['health_bar','stats','attacks','surprise','evade','move'])if(x?.[k]==null)errors.push(`adversary.${k} is required.`);if(!Array.isArray(x?.attacks)||!x.attacks.length)errors.push('At least one attack is required.')}
  if(type==='encounter'){if(!Array.isArray(x?.participants))errors.push('participants array required.');if(!['Weak','Moderate','Strong','Overwhelming'].includes(x?.power_band))flags.push('Power band is missing or non-standard; GM must review encounter scaling.')}
  if(type==='quest'&&!Array.isArray(x?.objectives))errors.push('Quest objectives array required.');
  if(type==='loot_box'&&!['bronze','silver','gold','platinum','legendary','celestial'].includes(String(x?.tier||'').toLowerCase()))errors.push('Loot Box tier must be Bronze–Celestial.');
+ if(type==='item'){
+   const tiers=['mundane','bronze','silver','gold','platinum','legendary','celestial'];
+   if(!tiers.includes(String(x?.loot_tier||'').toLowerCase()))errors.push('Item loot_tier is missing or invalid.');
+   if(c.tier&&c.tier!=='__AI_DECIDE__'&&String(x?.loot_tier||'').toLowerCase()!==c.tier.toLowerCase())errors.push(`Requested tier ${c.tier}; generated ${x?.loot_tier||'missing'}.`);
+   if(c.category&&c.category!=='__AI_DECIDE__'&&String(x?.category||'').toLowerCase()!==c.category.toLowerCase())errors.push(`Requested category ${c.category}; generated ${x?.category||'missing'}.`);
+   if(c.floor&&c.floor!=='__AI_DECIDE__'&&Number(x?.floor_min)!==Number(c.floor))errors.push(`Requested Floor ${c.floor}; generated floor_min ${x?.floor_min??'missing'}.`);
+   if(c.name==='__AI_DECIDE__'&&(!x?.name||/ai decide/i.test(String(x.name))))errors.push('GM delegated naming to AI but no authored name was generated.');
+   if(!String(x?.description||'').trim())errors.push('Item player-facing description is required.');
+   if(!String(x?.system_description||'').trim())errors.push('Item System description is required.');
+   if(/aggressive|sarcastic|texas-themed|system description tone|slightly insulting/i.test(String(x?.system_description||''))&&String(x.system_description).length<180)errors.push('system_description appears to repeat writing instructions instead of containing authored System copy.');
+   if(!x?.mechanics||typeof x.mechanics!=='object')errors.push('Structured item mechanics are required.');
+   const w=x?.mechanics?.weapon;
+   if(String(x?.category||'').toLowerCase()==='weapon'){
+     if(!w||typeof w!=='object')errors.push('Weapon item requires mechanics.weapon.');
+     if(!String(w?.damage||'').trim())errors.push('Weapon damage dice are required.');
+     if(!String(w?.damage_type||'').trim())errors.push('Weapon damage type is required.');
+     if(!String(w?.range||'').trim())errors.push('Weapon range is required.');
+     if(c.damage_type&&c.damage_type!=='__AI_DECIDE__'&&String(w?.damage_type||'').toLowerCase()!==c.damage_type.toLowerCase())errors.push(`Requested damage type ${c.damage_type}; generated ${w?.damage_type||'missing'}.`);
+     if(c.damage&&c.damage!=='__AI_DECIDE__'&&String(w?.damage||'').toLowerCase()!==c.damage.toLowerCase())errors.push(`Requested damage ${c.damage}; generated ${w?.damage||'missing'}.`);
+   }
+   if(!String(x?.mechanics?.notes||'').trim())flags.push('GM mechanics notes are empty.');
+ }
  x.source_authority='AI_GENERATED';x.gm_approval_required=true;x.review_flags=[...new Set(flags)];
- return {errors,flags:x.review_flags};
+ return {errors,flags:x.review_flags,constraints:c};
 }
 function extractJson(s){const a=s.indexOf('{'),b=s.lastIndexOf('}');if(a<0||b<a)throw new Error('Ollama returned no JSON object.');return JSON.parse(s.slice(a,b+1))}
+async function ollamaCall(cfg,prompt,temp=0.72){
+ const res=await fetch(cfg.url.replace(/\/$/,'')+'/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:cfg.model,prompt,stream:false,format:'json',options:{temperature:temp}})});
+ if(!res.ok)throw new Error(`Ollama HTTP ${res.status}`);
+ const data=await res.json();return extractJson(data.response||'');
+}
 async function ollamaGenerate(type,request){
- const cfg=aiCfg(),ref=aiReference(type),schema=aiSchemaHint(type);
- const prompt=`You are a draft content generator for a private Dungeon Crawler Carl RPG campaign tool. Return ONE JSON object only, no markdown. Do not claim invented mechanics are RAW. Follow the schema shape exactly enough for the app to validate it. Put every uncertain, inferred, invented, or homebrew mechanic in review_flags. Preserve formulas such as +F and +S without guessing their values.\n\nGM REQUEST:\n${request}\n\nCAMPAIGN/RULE REFERENCE:\n${JSON.stringify(ref,null,2)}\n\nOUTPUT SHAPE:\n${JSON.stringify(schema,null,2)}\n\nExisting library names you may reuse by name when appropriate (do not copy mechanics you cannot see): ${library().filter(x=>x.content_type===type||type==='encounter'&&x.content_type==='adversary').slice(0,30).map(x=>x.name).join(', ')||'none'}`;
- const res=await fetch(cfg.url.replace(/\/$/,'')+'/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:cfg.model,prompt,stream:false,format:'json',options:{temperature:0.55}})});
- if(!res.ok)throw new Error(`Ollama HTTP ${res.status}`);const data=await res.json();return extractJson(data.response||'');
+ const cfg=aiCfg(),ref=aiReference(type),schema=aiSchemaHint(type),constraints=aiRequestedConstraints(type,request);
+ const contract=`You are the CREATIVE DESIGNER, not a form parser. Author a complete new RPG content definition from the GM's concept.
+
+INPUT SEMANTICS:
+1. Explicit GM values are HARD CONSTRAINTS. Never downgrade, replace, or ignore them. If the GM says Tier: Gold, output gold.
+2. "AI Decide", "AI decides", "AI can expound", blank creative fields, and similar phrases are DELEGATION. You MUST invent an appropriate finished value. NEVER output the words "AI Decide" and do not merely rename the concept.
+3. Tone instructions describe HOW TO WRITE. They are not output text. If told "sarcastic, Texas-themed", write an actual sarcastic Texas-themed System description.
+4. Expand short appearance/concept notes into polished player-facing prose.
+5. Mechanics must be STRUCTURED in the provided schema. Do not hide damage, stat bonuses, passive effects, drawbacks, triggers, duration, ammunition, or limitations only inside mechanics.notes.
+6. For weapons, mechanics.weapon.damage, damage_type, and range are mandatory. If the GM delegates damage dice, design appropriate dice and explain the balance in mechanics.notes.
+7. Invented campaign mechanics are allowed only when clearly placed in mechanics.campaign_rules and review_flags. Do not claim they are RAW.
+8. Make the item's benefit AND drawback mechanically usable at the table. Avoid unsupported D&D-style DC checks unless the supplied campaign reference supports them.
+9. Return ONE JSON object only. No markdown.
+
+The schema's example values are SHAPE EXAMPLES, NOT DEFAULTS. Do not copy bronze, 1D8, or placeholder strings unless they are actually appropriate.`;
+ const prompt=`${contract}\n\nGM REQUEST:\n${request}\n\nPARSED GM CONSTRAINTS:\n${JSON.stringify(constraints,null,2)}\n\nCAMPAIGN/RULE REFERENCE:\n${JSON.stringify(ref,null,2)}\n\nREQUIRED OUTPUT SHAPE:\n${JSON.stringify(schema,null,2)}\n\nExisting library names for context only: ${library().filter(x=>x.content_type===type||type==='encounter'&&x.content_type==='adversary').slice(0,30).map(x=>x.name).join(', ')||'none'}`;
+ let x=await ollamaCall(cfg,prompt,0.78);
+ let v=aiValidate(x,type,request);
+ if(v.errors.length){
+   const repair=`${contract}\n\nYour previous draft FAILED validation. Repair it rather than defending it.\n\nORIGINAL GM REQUEST:\n${request}\n\nHARD/DELEGATED CONSTRAINTS:\n${JSON.stringify(constraints,null,2)}\n\nVALIDATION FAILURES:\n${v.errors.join('\n')}\n\nPREVIOUS JSON:\n${JSON.stringify(x,null,2)}\n\nREQUIRED OUTPUT SHAPE:\n${JSON.stringify(schema,null,2)}\n\nReturn a corrected, fully authored JSON object only.`;
+   x=await ollamaCall(cfg,repair,0.68);
+   v=aiValidate(x,type,request);
+   if(v.errors.length)throw new Error('AI draft failed validation after automatic repair:\\n- '+v.errors.join('\\n- '));
+ }
+ return x;
 }
 function aiStudio(){
- const cfg=aiCfg(),d=aiDraft,v=d?aiValidate(d,d.content_type):{errors:[],flags:[]};
+ const cfg=aiCfg(),d=aiDraft,v=d?aiValidate(d,d.content_type,d._generation_request||''):{errors:[],flags:[]};
  return `<section class="gm-ai"><div class="gm-grid2">
  <div class="panel"><span class="tag">LOCAL AI // OLLAMA</span><h2>AI CONTENT STUDIO</h2><p class="muted">AI creates <b>drafts only</b>. Nothing enters the Content Engine until you review and approve it. RAW remains authoritative.</p>
  <div class="field"><label>Content Type</label><select id="aiType">${AI_TYPES.map(x=>`<option value="${x}">${x.replace('_',' ').toUpperCase()}</option>`).join('')}</select></div>
@@ -210,7 +291,7 @@ function items(){
  <div class="controls"><button id="saveItem" class="primary">SAVE TO LIBRARY</button><button id="clearItem">CLEAR</button></div></div>
  <div class="panel"><div class="gm-library-head"><div><span class="tag">ITEM LIBRARY</span><h2>${items.length} Definitions</h2></div><input id="itemSearch" placeholder="Search items..."></div><div id="itemList">${renderItemList(items)}</div></div></section>`;
 }
-function renderItemList(items){return items.length?items.map(x=>`<div class="gm-library-row" data-search="${escA((x.name+' '+x.category+' '+(x.gear_slot||'')+' '+x.loot_tier).toLowerCase())}"><div><b>${escA(x.name)}</b><div class="muted small">${escA(x.category.toUpperCase())} // ${escA(x.gear_slot||'NOT EQUIPPABLE')} // ${escA((x.loot_tier||'mundane').toUpperCase())}</div><div class="muted">${escA(x.system_description||'')}</div></div><div class="controls"><span class="pill">${escA(x.source_authority)}</span><button data-awarditem="${x.id}">AWARD</button><button data-deletecontent="${x.id}" class="danger">DELETE</button></div></div>`).join(''):'<p class="muted">No item definitions yet.</p>'}
+function renderItemList(items){return items.length?items.map(x=>`<div class="gm-library-row" data-search="${escA((x.name+' '+x.category+' '+(x.gear_slot||'')+' '+x.loot_tier+' '+gmEffectSummary(x)).toLowerCase())}"><div><b>${escA(x.name)}</b><div class="muted small">${escA(x.category.toUpperCase())} // ${escA(x.gear_slot||'NOT EQUIPPABLE')} // ${escA((x.loot_tier||'mundane').toUpperCase())}</div><div class="muted">${escA(x.system_description||'')}</div><div class="notice small"><b>EFFECT</b> — ${escA(gmEffectSummary(x))}</div></div><div class="controls"><span class="pill">${escA(x.source_authority)}</span><button data-awarditem="${x.id}">AWARD</button><button data-deletecontent="${x.id}" class="danger">DELETE</button></div></div>`).join(''):'<p class="muted">No item definitions yet.</p>'}
 function npcs(){
  const lib=library(),npcs=lib.filter(x=>x.content_type==='npc');
  return `<section class="gm-library-layout"><div class="panel"><div class="tag">NPC WORKSHOP</div><h2>NPC Definition</h2><div class="gm-formgrid"><div class="field"><label>Name</label><input id="npcName"></div><div class="field"><label>Type</label><select id="npcType">${['Game Guide','Vendor','Quest NPC','Public Relations Agent','Interview/Media','Civilian','Authority','Rival Crawler','Other'].map(x=>`<option>${x}</option>`).join('')}</select></div><div class="field"><label>Floor</label><input id="npcFloor" type="number" min="1" value="1"></div><div class="field"><label>Status</label><select id="npcStatus"><option>active</option><option>friendly</option><option>neutral</option><option>hostile</option><option>missing</option><option>dead</option><option>inactive</option></select></div><div class="field"><label>Location</label><input id="npcLocation"></div><div class="field"><label>Faction</label><input id="npcFaction"></div><div class="field wide"><label>Personality / Behavior</label><textarea id="npcPersonality" rows="4"></textarea></div><div class="field wide"><label>GM Secrets / Restrictions</label><textarea id="npcSecrets" rows="4"></textarea></div></div><button id="saveNpc" class="primary">SAVE NPC</button></div>
@@ -259,10 +340,10 @@ function bind(){
  document.querySelectorAll('[data-jump]').forEach(b=>b.onclick=()=>{workspace=b.dataset.jump;render()});
 
  document.querySelector('#aiSaveCfg')?.addEventListener('click',()=>{saveAiCfg({url:document.querySelector('#aiUrl').value.trim()||'http://localhost:11434',model:document.querySelector('#aiModel').value.trim()||'llama3.2:3b'});alert('Local AI settings saved in this browser.')});
- document.querySelector('#aiGenerate')?.addEventListener('click',async()=>{const b=document.querySelector('#aiGenerate'),type=document.querySelector('#aiType').value,request=document.querySelector('#aiRequest').value.trim();if(!request)return alert('Describe what you want the AI to draft.');b.disabled=true;b.textContent='GENERATING…';try{const x=await ollamaGenerate(type,request);x.content_type=type;x.schema_version='1.0';x.id='draft_'+Date.now();x.source_authority='AI_GENERATED';x.gm_approval_required=true;aiValidate(x,type);aiDraft=x;render()}catch(e){alert('LOCAL AI OFFLINE OR INVALID RESPONSE\\n\\n'+e.message+'\\n\\nStart Ollama with the included launcher and confirm the selected model is installed.')}finally{if(document.querySelector('#aiGenerate')){b.disabled=false;b.textContent='GENERATE DRAFT'}}});
+ document.querySelector('#aiGenerate')?.addEventListener('click',async()=>{const b=document.querySelector('#aiGenerate'),type=document.querySelector('#aiType').value,request=document.querySelector('#aiRequest').value.trim();if(!request)return alert('Describe what you want the AI to draft.');b.disabled=true;b.textContent='GENERATING…';try{const x=await ollamaGenerate(type,request);x.content_type=type;x.schema_version='1.0';x.id='draft_'+Date.now();x.source_authority='AI_GENERATED';x.gm_approval_required=true;x._generation_request=request;aiValidate(x,type,request);aiDraft=x;render()}catch(e){alert('LOCAL AI OFFLINE OR INVALID RESPONSE\\n\\n'+e.message+'\\n\\nStart Ollama with the included launcher and confirm the selected model is installed.')}finally{if(document.querySelector('#aiGenerate')){b.disabled=false;b.textContent='GENERATE DRAFT'}}});
  document.querySelector('#aiClear')?.addEventListener('click',()=>{aiDraft=null;render()});
- document.querySelector('#aiRevalidate')?.addEventListener('click',()=>{try{aiDraft=JSON.parse(document.querySelector('#aiDraftJson').value);aiValidate(aiDraft,aiDraft.content_type);render()}catch(e){alert('Draft JSON is invalid: '+e.message)}});
- document.querySelector('#aiApprove')?.addEventListener('click',()=>{try{const x=JSON.parse(document.querySelector('#aiDraftJson').value),v=aiValidate(x,x.content_type);if(v.errors.length)return alert('Fix validation errors first:\\n'+v.errors.join('\\n'));x.id=id(x.content_type==='loot_box'?'lootboxdef':x.content_type);x.schema_version='1.0';x.source_authority='AI_GENERATED';x.gm_approval_required=false;x.gm_approved_at=new Date().toISOString();x.gm_approved=true;const lib=library();lib.push(x);saveLibrary(lib);feed(`GM approved AI draft into Content Engine: ${x.name}.`);queueEvent({event_type:'content_created',title:x.name,body:'AI-generated draft approved by GM.',related_object_type:x.content_type,related_object_id:x.id,status:'recorded',source_authority:'AI_GENERATED'});aiDraft=null;alert('Approved and saved to the Content Engine.');render()}catch(e){alert('Cannot approve draft: '+e.message)}});
+ document.querySelector('#aiRevalidate')?.addEventListener('click',()=>{try{aiDraft=JSON.parse(document.querySelector('#aiDraftJson').value);aiValidate(aiDraft,aiDraft.content_type,aiDraft._generation_request||'');render()}catch(e){alert('Draft JSON is invalid: '+e.message)}});
+ document.querySelector('#aiApprove')?.addEventListener('click',()=>{try{const x=JSON.parse(document.querySelector('#aiDraftJson').value),v=aiValidate(x,x.content_type,x._generation_request||'');if(v.errors.length)return alert('Fix validation errors first:\\n'+v.errors.join('\\n'));delete x._generation_request;x.id=id(x.content_type==='loot_box'?'lootboxdef':x.content_type);x.schema_version='1.0';x.source_authority='AI_GENERATED';x.gm_approval_required=false;x.gm_approved_at=new Date().toISOString();x.gm_approved=true;const lib=library();lib.push(x);saveLibrary(lib);feed(`GM approved AI draft into Content Engine: ${x.name}.`);queueEvent({event_type:'content_created',title:x.name,body:'AI-generated draft approved by GM.',related_object_type:x.content_type,related_object_id:x.id,status:'recorded',source_authority:'AI_GENERATED'});aiDraft=null;alert('Approved and saved to the Content Engine.');render()}catch(e){alert('Cannot approve draft: '+e.message)}});
 
  document.querySelector('#liveSend')?.addEventListener('click',async()=>{const who=document.querySelector('#liveRecipients').value,type=document.querySelector('#liveEventType').value,title=document.querySelector('#liveTitle').value.trim(),body=document.querySelector('#liveBody').value.trim(),presentation=document.querySelector('#livePresentation').value,priority=document.querySelector('#livePriority').value;if(!title&&!body)return alert('Enter a title or message.');const targets=who==='PARTY'?state.crawlers:[crawler(who)].filter(Boolean);for(const c of targets){queueEvent({event_type:type,title:title||'SYSTEM MESSAGE',body,recipient_id:c.id,recipient_name:c.name,priority,presentation});}feed(`Live ${type.replaceAll('_',' ')} sent to ${who==='PARTY'?'PARTY':targets[0]?.name}.`);render()});
  document.querySelectorAll('[data-qobj]').forEach(el=>el.onchange=async()=>{const [cid,key,idx]=el.dataset.qobj.split('|'),c=crawler(cid),q=findQuestInstance(c,key);if(!q||!q.objectives?.[Number(idx)])return;q.objectives[Number(idx)].status=el.checked?'COMPLETE':'ACTIVE';await saveCrawlerNow(c);queueEvent({event_type:'quest_updated',title:q.name,body:`Objective ${Number(idx)+1}: ${el.checked?'COMPLETE':'ACTIVE'}`,recipient_id:c.id,recipient_name:c.name,related_object_type:'quest',related_object_id:q.definition_id||q.id});feed(`${c.name} quest updated: ${q.name}.`);state=readState()||state;render()});
@@ -285,7 +366,7 @@ function bind(){
  document.querySelector('#partyLevelUp')?.addEventListener('click',async()=>{if(!confirm('Advance every crawler +1 Level and bank +3 Stat Points?'))return;for(const c of state.crawlers){c.level=Number(c.level||1)+1;c.pendingStatPoints=Number(c.pendingStatPoints||0)+3;await saveCrawlerNow(c)}feed('Party advanced +1 Level. Each crawler banked 3 Stat Points.');state=readState()||state;render()});
  document.querySelector('#partyFloorUp')?.addEventListener('click',async()=>{if(!confirm('Advance every crawler +1 Floor?'))return;for(const c of state.crawlers){c.floor=Number(c.floor||1)+1;await saveCrawlerNow(c)}feed('Party advanced +1 Floor.');state=readState()||state;render()});
  document.querySelector('#stageLoot')?.addEventListener('click',async()=>{const c=crawler(document.querySelector('#lootWho').value),tier=document.querySelector('#lootTier').value,name=document.querySelector('#lootName').value.trim(),contents=document.querySelector('#lootContents').value.trim();if(!name)return alert('Enter a loot box name.');c.lootBoxes.push({id:id('loot'),name,tier,contents,opened:false,awardedAt:new Date().toISOString()});await saveC(c,`${c.name} received sealed ${tier} loot box: ${name}.`)});
- document.querySelector('#saveQuestDef')?.addEventListener('click',()=>{const name=document.querySelector('#rwQuestName').value.trim();if(!name)return alert('Quest name required.');const x={schema_version:'1.0',content_type:'quest',id:id('quest'),name,scope:document.querySelector('#rwQuestScope').value,description:document.querySelector('#rwQuestDesc').value.trim(),objectives:document.querySelector('#rwQuestObj').value.split('\n').map(x=>x.trim()).filter(Boolean).map((text,i)=>({id:'obj_'+(i+1),text,required:true})),reward_notes:document.querySelector('#rwQuestReward').value.trim(),source_authority:'THE_DESCENT',gm_approval_required:false};const lib=library();lib.push(x);saveLibrary(lib);queueEvent({event_type:'content_created',title:name,body:'Quest Definition saved.',related_object_type:'quest',related_object_id:x.id,status:'recorded'});render()});
+ document.querySelector('#saveQuestDef')?.addEventListener('click',()=>{const name=document.querySelector('#rwQuestName').value.trim();if(!name)return alert('Quest name required.');const x={schema_version:'1.0',content_type:'quest',id:id('quest'),name,scope:document.querySelector('#rwQuestScope').value,description:document.querySelector('#rwQuestDesc').value.trim(),objectives:document.querySelector('#rwQuestObj').value.split('\n').map(x=>x.trim()).filter(Boolean).map((text,i)=>({id:'obj_'+(i+1),text,required:true})),reward_notes:document.querySelector('#rwQuestReward').value.trim(),gm_end_goal:document.querySelector('#rwQuestEndGoal')?.value.trim()||'',retrieval_target:document.querySelector('#rwQuestTarget')?.value.trim()||'',triggered_encounter:document.querySelector('#rwQuestEncounter')?.value.trim()||'',source_authority:'THE_DESCENT',gm_approval_required:false};const lib=library();lib.push(x);saveLibrary(lib);queueEvent({event_type:'content_created',title:name,body:'Quest Definition saved.',related_object_type:'quest',related_object_id:x.id,status:'recorded'});render()});
  document.querySelector('#saveAchievementDef')?.addEventListener('click',()=>{const name=document.querySelector('#rwAchName').value.trim();if(!name)return alert('Achievement name required.');const tier=document.querySelector('#rwAchBox').value;const x={schema_version:'1.0',content_type:'achievement',id:id('achievement'),name,description:document.querySelector('#rwAchDesc').value.trim(),reward:tier?{tier,box_name:document.querySelector('#rwAchBoxName').value.trim()||`${tier} Loot Box`}:null,contents:document.querySelector('#rwAchContents').value.trim(),source_authority:'THE_DESCENT',gm_approval_required:false};const lib=library();lib.push(x);saveLibrary(lib);queueEvent({event_type:'content_created',title:name,body:'Achievement Definition saved.',related_object_type:'achievement',related_object_id:x.id,status:'recorded'});render()});
  document.querySelector('#saveBoxDef')?.addEventListener('click',()=>{const name=document.querySelector('#rwBoxName').value.trim();if(!name)return alert('Loot Box name required.');const x={schema_version:'1.0',content_type:'loot_box',id:id('lootboxdef'),name,tier:document.querySelector('#rwBoxTier').value,box_type:document.querySelector('#rwBoxType').value.trim()||'Adventurer',contents:document.querySelector('#rwBoxContents').value.trim(),source_authority:'THE_DESCENT',gm_approval_required:false};const lib=library();lib.push(x);saveLibrary(lib);queueEvent({event_type:'content_created',title:name,body:'Loot Box Definition saved.',related_object_type:'loot_box',related_object_id:x.id,status:'recorded'});render()});
  document.querySelector('#rewardFilter')?.addEventListener('change',e=>document.querySelectorAll('#rewardList [data-rwtype]').forEach(r=>r.classList.toggle('hidden',e.target.value!=='all'&&r.dataset.rwtype!==e.target.value)));

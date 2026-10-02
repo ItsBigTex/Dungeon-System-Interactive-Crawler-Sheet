@@ -946,7 +946,10 @@
           "hidden": false
         }
       ],
-      "reward_notes": "Pet Owner's Regret reward; Neighborhood Map if Cerberuff is defeated."
+      "reward_notes": "Pet Owner's Regret reward; Neighborhood Map if Cerberuff is defeated.",
+      "gm_end_goal": "Force a personal confrontation with the reconstructed home, show how the System weaponizes familiar places, and resolve the Cerberuff threat.",
+      "retrieval_target": "The memory-anchor clue inside the reconstructed home; no fixed physical form required.",
+      "triggered_encounter": "Welcome Home (f1_e_rottpack) \u2192 Three Heads, One Collar (f1_e_cerberuff), boss Cerberuff."
     },
     {
       "schema_version": "1.0",
@@ -978,7 +981,10 @@
       "reward_notes": "Unlocks the Black Key route and a Silver Adventurer Box.",
       "source_authority": "THE_DESCENT",
       "gm_approval_required": false,
-      "campaign_pack": "F1_HOMECOMING"
+      "campaign_pack": "F1_HOMECOMING",
+      "gm_end_goal": "Establish that False Brownwood is assembled from corrupted crawler memories and collect enough anomaly evidence to unlock the Black Door progression.",
+      "retrieval_target": "Three anomaly evidence pieces: Pump Seven Token / gas-station evidence, Locker 113 school evidence, and an Impossible Receipt from the shopping district.",
+      "triggered_encounter": "Pump Seven Closing Shift (f1_e_pumpboss), Final Bell (f1_e_coach), and Everything Must Go (f1_e_receipts) are the intended site encounters."
     },
     {
       "schema_version": "1.0",
@@ -1010,7 +1016,10 @@
       "reward_notes": "Pump Seven Token; Bronze Utility Box.",
       "source_authority": "THE_DESCENT",
       "gm_approval_required": false,
-      "campaign_pack": "F1_HOMECOMING"
+      "campaign_pack": "F1_HOMECOMING",
+      "gm_end_goal": "Break the Pump Seven reset loop and recover its anomaly token as one piece of proof for The Town That Shouldn't Exist.",
+      "retrieval_target": "Pump Seven Token (f1_item_gastoken).",
+      "triggered_encounter": "Pump Seven Closing Shift (f1_e_pumpboss) featuring the Pump Seven Attendant."
     },
     {
       "schema_version": "1.0",
@@ -1042,7 +1051,10 @@
       "reward_notes": "Coach's Whistle; Silver Adventurer Box.",
       "source_authority": "THE_DESCENT",
       "gm_approval_required": false,
-      "campaign_pack": "F1_HOMECOMING"
+      "campaign_pack": "F1_HOMECOMING",
+      "gm_end_goal": "Reach Locker 113, recover the school anomaly evidence, and expose another corrupted memory anchor.",
+      "retrieval_target": "Locker 113 evidence; the Locker 113 Key (f1_item_lockerkey) is a route tool, not necessarily the final evidence itself.",
+      "triggered_encounter": "Final Bell (f1_e_coach) featuring The Wrong Coach; Passing Period (f1_e_halls) can precede it."
     },
     {
       "schema_version": "1.0",
@@ -1074,7 +1086,10 @@
       "reward_notes": "Impossible Receipt evidence; Bronze Adventurer Box.",
       "source_authority": "THE_DESCENT",
       "gm_approval_required": false,
-      "campaign_pack": "F1_HOMECOMING"
+      "campaign_pack": "F1_HOMECOMING",
+      "gm_end_goal": "Prove the shopping district is manufacturing crawler memories and secure its anomaly evidence.",
+      "retrieval_target": "Three Impossible Receipts, with at least one tied to a real crawler memory.",
+      "triggered_encounter": "Everything Must Go (f1_e_receipts) featuring Receipt Mannequins."
     },
     {
       "schema_version": "1.0",
@@ -1112,7 +1127,10 @@
       "reward_notes": "Access to Stadium route; Gold-tier campaign milestone reward at GM discretion.",
       "source_authority": "THE_DESCENT",
       "gm_approval_required": false,
-      "campaign_pack": "F1_HOMECOMING"
+      "campaign_pack": "F1_HOMECOMING",
+      "gm_end_goal": "Convert the three anomaly investigations into concrete progression: reveal the Black Door, acquire its key, and open the Stadium route.",
+      "retrieval_target": "The Black Key (f1_item_blackkey), after presenting the anomaly evidence to Ms. Bell.",
+      "triggered_encounter": "The Key Has a Warden (f1_e_warden) featuring the Black Key Warden."
     },
     {
       "schema_version": "1.0",
@@ -1150,7 +1168,10 @@
       "reward_notes": "Floor One progression; Silver Adventurer Box.",
       "source_authority": "THE_DESCENT",
       "gm_approval_required": false,
-      "campaign_pack": "F1_HOMECOMING"
+      "campaign_pack": "F1_HOMECOMING",
+      "gm_end_goal": "Move the party through the Stadium district and reveal the route deeper into Floor One.",
+      "retrieval_target": "No retrieval target; the goal is reaching the service tunnel/route marker beyond the field.",
+      "triggered_encounter": "Home Side Advantage (f1_e_bleachers) is the intended Stadium combat."
     },
     {
       "schema_version": "1.0",
@@ -1182,7 +1203,10 @@
       "reward_notes": "Nadia becomes a friendly contact; Bronze Utility Box.",
       "source_authority": "THE_DESCENT",
       "gm_approval_required": false,
-      "campaign_pack": "F1_HOMECOMING"
+      "campaign_pack": "F1_HOMECOMING",
+      "gm_end_goal": "Turn Nadia Rook into a recurring friendly contact by resolving what happened to her separated party.",
+      "retrieval_target": "Evidence identifying the route or fate of Nadia's missing party; exact form is left for GM placement.",
+      "triggered_encounter": "No mandatory boss; use an appropriate local encounter if the search crosses a hostile district."
     },
     {
       "schema_version": "1.0",
@@ -3134,7 +3158,10 @@
           "hidden": false
         }
       ],
-      "reward_notes": "Silver Gladiator Box; Neighborhood Map if the Neighborhood Boss is defeated."
+      "reward_notes": "Silver Gladiator Box; Neighborhood Map if the Neighborhood Boss is defeated.",
+      "gm_end_goal": "Give combat-hungry crawlers an optional arena gauntlet and a legitimate Neighborhood Boss/map reward path.",
+      "retrieval_target": "No retrieval target.",
+      "triggered_encounter": "Opening Ceremonies (f1_e_arena1) \u2192 The Crowd Wants Blood (f1_e_arena2) \u2192 Hometown Caesar (f1_e_caesar), boss The Hometown Caesar."
     },
     {
       "schema_version": "1.0",
@@ -3172,7 +3199,10 @@
           "hidden": false
         }
       ],
-      "reward_notes": "County Utility Box and recovered jail property."
+      "reward_notes": "County Utility Box and recovered jail property.",
+      "gm_end_goal": "Turn the jail into a compact exploration dungeon where the party raids property storage and learns the System is moving anomaly material through civic infrastructure.",
+      "retrieval_target": "Useful/confiscated property from secured storage; optional anomaly-transfer evidence in booking.",
+      "triggered_encounter": "Booking Procedure (f1_e_booking) and Facility Lockdown (f1_e_lockdown)."
     },
     {
       "schema_version": "1.0",
@@ -3210,7 +3240,10 @@
           "hidden": false
         }
       ],
-      "reward_notes": "League Night Box and a memory-anchor clue."
+      "reward_notes": "League Night Box and a memory-anchor clue.",
+      "gm_end_goal": "Reveal Memory Lanes as a strong memory anchor by making the party finish the System's corrupted bowling game and earn a clue about how Homecoming is built.",
+      "retrieval_target": "A memory-anchor clue revealed by the scoreboard after the final frame.",
+      "triggered_encounter": "League Night (f1_e_lanes) \u2192 Tenth Frame (f1_e_finalframe)."
     },
     {
       "schema_version": "1.0",
@@ -3248,7 +3281,10 @@
           "hidden": false
         }
       ],
-      "reward_notes": "Range Utility Box; firearm-adjacent equipment; limited ammunition only if GM awards it."
+      "reward_notes": "Range Utility Box; firearm-adjacent equipment; limited ammunition only if GM awards it.",
+      "gm_end_goal": "Subvert the expectation that the gun store is a firearm upgrade cache; reward careful resource use with utility equipment instead.",
+      "retrieval_target": "The security-range utility cache; contents are firearm-adjacent gear and only limited ammunition if the GM chooses.",
+      "triggered_encounter": "Downrange (f1_e_range) featuring Range Target Stalkers."
     },
     {
       "schema_version": "1.0",
