@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GM Console // The Descent</title>
-<link rel="stylesheet" href="./css/dungeon.css?v=4.5.2"><link rel="stylesheet" href="./css/gm-console.css?v=4.5.2">
+<link rel="stylesheet" href="./css/dungeon.css?v=4.5.2.1"><link rel="stylesheet" href="./css/gm-console.css?v=4.5.2.1">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head>
 <body><main class="shell gm-shell">
 <header class="top gm-top"><a class="btn" href="./index.html">← PLAYER PORTAL</a>
@@ -15,7 +15,7 @@
 </section>
 
 <nav class="gm-workspaces" id="workspaceNav">
-<button class="workspace-tab" data-workspace="session">SESSION MODE</button><button data-workspace="dashboard" class="active">DASHBOARD</button>
+<button data-workspace="dashboard" class="active">DASHBOARD</button>
 <button data-workspace="session">LIVE SESSION</button>
 <button data-workspace="director">DUNGEON DIRECTOR</button>
 <button data-workspace="foundry">FOUNDRY BRIDGE</button>
@@ -31,6 +31,6 @@
 
 <section id="workspace"></section>
 <div class="footer">THE DESCENT // GM CONSOLE // RAW RULES AUTHORITY: CORE RULEBOOK + GM TOOLKIT</div>
-<section class="workspace-panel session-mode-panel" data-workspace-panel="session" id="sessionModePanel"><div class="session-head"><div><div class="eyebrow">LIVE SESSION</div><h2>SESSION MODE</h2><p class="muted">Fast controls for Session 1.</p></div><div class="session-clock" id="sessionClock">--:--</div></div><div class="session-crawlers" id="sessionCrawlerGrid"><div class="muted">Crawler status loads with GM state.</div></div><div class="session-quick-grid"><button type="button" data-session-find="message">SYSTEM MESSAGE</button><button type="button" data-session-find="quest">QUEST</button><button type="button" data-session-find="achievement">ACHIEVEMENT</button><button type="button" data-session-find="loot">LOOT</button><button type="button" data-session-find="action">GM ACTIONS</button><button type="button" data-session-find="director">DIRECTOR PULSE</button></div><div class="session-feed-wrap"><h3>Dungeon Feed</h3><div id="sessionFeedMirror" class="session-feed"></div></div></section></main>
-<script src="./js/crawler-data.js?v=4.5.2"></script><script src="./js/supabase-config.js?v=4.5.2"></script>
-<script src="./js/cloud-state.js?v=4.5.2"></script><script src="./js/app.js?v=4.5.2"></script><script src="./js/foundry-bridge.js?v=4.5.2"></script><script src="./js/gm.js?v=4.5.2"></script><button type="button" id="openDungeonVoice" class="voice-config-fab">DUNGEON AI VOICE</button><button type="button" id="openPremiumVoice" class="voice-config-fab premium-voice-fab">PREMIUM AI VOICE</button></body></html>
+</main>
+<button type="button" id="openDungeonVoice" class="voice-config-fab">DUNGEON AI VOICE</button><button type="button" id="openPremiumVoice" class="voice-config-fab premium-voice-fab">PREMIUM AI VOICE</button><script src="./js/crawler-data.js?v=4.5.2.1"></script><script src="./js/supabase-config.js?v=4.5.2.1"></script>
+<script src="./js/cloud-state.js?v=4.5.2.1"></script><script src="./js/app.js?v=4.5.2.1"></script><script src="./js/foundry-bridge.js?v=4.5.2.1"></script><script src="./js/audio-engine.js?v=4.5.2.1"></script><script src="./js/gm.js?v=4.5.2.1"></script></body></html>

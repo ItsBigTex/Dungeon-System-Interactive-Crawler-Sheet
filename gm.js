@@ -152,6 +152,14 @@ function session(){
  const lib=library(),a=active(),quests=lib.filter(x=>x.content_type==='quest'),achs=lib.filter(x=>x.content_type==='achievement'),boxes=lib.filter(x=>x.content_type==='loot_box');
  const activeQs=state.crawlers.flatMap(c=>(c.quests||[]).filter(q=>String(q.status||'ACTIVE').toUpperCase()==='ACTIVE').map(q=>({c,q})));
  return `<section class="gm-session">
+ <section class="panel session-quick-actions"><span class="tag">SESSION QUICK ACTIONS</span><div class="controls">
+ <button data-session-jump="session" data-session-focus="#liveBody">SYSTEM MESSAGE</button>
+ <button data-session-jump="rewards" data-session-focus="#rwQuestName">QUEST</button>
+ <button data-session-jump="rewards" data-session-focus="#rwAchName">ACHIEVEMENT</button>
+ <button data-session-jump="rewards" data-session-focus="#lootName">LOOT</button>
+ <button data-session-jump="actions" data-session-focus="#actionBody">GM ACTIONS</button>
+ <button data-session-jump="director" data-session-focus="#directorPulse">DIRECTOR PULSE</button>
+ </div></section>
  <div class="gm-session-grid">
   <div class="panel"><span class="tag">LIVE PARTY CONTROL</span><h2>${state.crawlers.length} Crawlers</h2><div class="gm-live-party">${state.crawlers.map(c=>`<div class="gm-live-row"><div><b>${escA(c.name)}</b><div class="muted small">LV ${c.level} // FLOOR ${c.floor} // MANA ${Number(c.mana??0)}/${Number(c.stats?.INT||0)}</div></div><div class="gm-minihealth">${Array.from({length:10},(_,i)=>`<i class="${i<Number(c.healthSlotsRemaining||0)?'on':''}"></i>`).join('')}</div><div class="controls"><button data-hslot="${c.id}" data-d="-1">− HP SLOT</button><button data-hslot="${c.id}" data-d="1">+ HP SLOT</button>${a&&a.phase==='crawlers'?`<button data-spendaction="${c.id}">SPEND ACTION</button>`:''}<a class="btn" href="./character.html?id=${encodeURIComponent(c.id)}">HUD</a></div></div>`).join('')}</div></div>
   <div class="panel"><span class="tag">SYSTEM EVENT COMPOSER</span><h2>Push to HUD</h2><div class="field"><label>Recipients</label><select id="liveRecipients"><option value="PARTY">PARTY</option>${opts()}</select></div><div class="gm-formgrid"><div class="field"><label>Event</label><select id="liveEventType"><option value="system_announcement">System Announcement</option><option value="notification">Notification</option><option value="private_message">System Message</option><option value="health_warning">Health Warning</option><option value="mana_warning">Mana Warning</option></select></div><div class="field"><label>Presentation</label><select id="livePresentation"><option value="popup">Popup</option><option value="banner">Banner</option></select></div><div class="field"><label>Priority</label><select id="livePriority"><option>normal</option><option>high</option><option>critical</option><option>low</option></select></div></div><div class="field"><label>Title</label><input id="liveTitle" value="SYSTEM ANNOUNCEMENT"></div><div class="field"><label>Message</label><textarea id="liveBody" rows="5"></textarea></div><button id="liveSend" class="primary">SEND LIVE EVENT</button></div>
@@ -409,6 +417,14 @@ function render(){
 async function saveC(c,msg){await saveCrawlerNow(c);if(msg)feed(msg);state=readState()||state;render()}
 function bind(){
  document.querySelectorAll('[data-jump]').forEach(b=>b.onclick=()=>{workspace=b.dataset.jump;render()});
+ document.querySelectorAll('[data-session-jump]').forEach(b=>b.onclick=()=>{
+   const dest=b.dataset.sessionJump, focus=b.dataset.sessionFocus;
+   workspace=dest; render();
+   requestAnimationFrame(()=>{
+     const el=focus?document.querySelector(focus):null;
+     if(el){el.scrollIntoView({behavior:'smooth',block:'center'}); if(typeof el.focus==='function')el.focus();}
+   });
+ });
 
  document.querySelector('#aiSaveCfg')?.addEventListener('click',()=>{saveAiCfg({url:document.querySelector('#aiUrl').value.trim()||'http://localhost:11434',model:document.querySelector('#aiModel').value.trim()||'llama3.2:3b'});alert('Local AI settings saved in this browser.')});
  document.querySelector('#aiGenerate')?.addEventListener('click',async()=>{const b=document.querySelector('#aiGenerate'),type=document.querySelector('#aiType').value,request=document.querySelector('#aiRequest').value.trim();if(!request)return alert('Describe what you want the AI to draft.');b.disabled=true;b.textContent='GENERATING…';try{const x=await ollamaGenerate(type,request);x.content_type=type;x.schema_version='1.0';x.id='draft_'+Date.now();x.source_authority='AI_GENERATED';x.gm_approval_required=true;x._generation_request=request;aiValidate(x,type,request);aiDraft=x;render()}catch(e){const validation=/failed validation/i.test(e.message);alert((validation?'AI DRAFT FAILED VALIDATION':'LOCAL AI OFFLINE OR INVALID RESPONSE')+'\n\n'+e.message+'\n\n'+(validation?'Ollama responded, but the draft still violated one or more GM constraints after automatic repair. Review the validation failures above.':'Start Ollama with the included launcher and confirm the selected model is installed.'))}finally{if(document.querySelector('#aiGenerate')){b.disabled=false;b.textContent='GENERATE DRAFT'}}});
@@ -482,9 +498,14 @@ window.addEventListener('descent-feed-update',()=>{const s=readState();if(s?.fee
 window.addEventListener('descent-message-update',()=>{const s=readState();if(s?.crawlers)state.crawlers=s.crawlers;render()});
 await initContentCloud();setInterval(header,30000);render();
 })().catch(e=>document.querySelector('#workspace').innerHTML=`<div class="notice">${esc(e.message)}</div>`);
-window.DESCENT_GM_BUILD='4.5.2';
-(function(){const $=s=>document.querySelector(s);const esc=v=>String(v??'—').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));function crawlers(){if(Array.isArray(window.crawlers))return window.crawlers;if(Array.isArray(window.allCrawlers))return window.allCrawlers;if(window.state?.crawlers)return Array.isArray(state.crawlers)?state.crawlers:Object.values(state.crawlers);return[]}function render(){let grid=$('#sessionCrawlerGrid');if(!grid)return;let a=crawlers();if(!a.length){grid.innerHTML='<div class="muted">Crawler status will appear when GM state is loaded.</div>';return}grid.innerHTML=a.slice(0,6).map(cr=>{let d=cr.data||cr,n=d.name||cr.display_name||cr.name||'Crawler',hp=d.hp??d.health??d.current_hp??'—',mh=d.max_hp??d.health_max??'—',ma=d.mana??d.current_mana??'—',mm=d.max_mana??d.mana_max??'—';return `<article class="session-crawler-card"><h3>${esc(n)}</h3><div class="session-statline"><span>HP ${esc(hp)}/${esc(mh)}</span><span>Mana ${esc(ma)}/${esc(mm)}</span><span>Lv ${esc(d.level??1)}</span><span>F${esc(d.floor??1)}</span></div></article>`}).join('')}function feed(){let d=$('#sessionFeedMirror'),s=['#dungeonFeed','#activityFeed','.dungeon-feed','.activity-feed'].map($).find(Boolean);if(d&&s)d.innerHTML=s.innerHTML}function init(){let cl=$('#sessionClock');if(cl)setInterval(()=>cl.textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),1000);document.querySelectorAll('[data-session-find]').forEach(b=>b.addEventListener('click',()=>{let k=b.dataset.sessionFind,t=[...document.querySelectorAll('button,a')].find(x=>(x.textContent||'').toLowerCase().includes(k));if(t&&t!==b)t.click()}));document.addEventListener('click',e=>{let b=e.target.closest?.('[data-workspace]');if(!b)return;document.querySelectorAll('[data-workspace-panel]').forEach(x=>x.classList.toggle('active',x.dataset.workspacePanel===b.dataset.workspace));if(b.dataset.workspace==='session'){render();feed()}});setInterval(()=>{if($('#sessionModePanel')?.classList.contains('active')){render();feed()}},1500);render();feed()}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init()})();
+window.DESCENT_GM_BUILD='4.5.2.1';
 
-document.addEventListener('DOMContentLoaded',()=>{document.getElementById('openDungeonVoice')?.addEventListener('click',()=>window.DescentDungeonVoice?.openPanel())},{once:true});
-
-document.addEventListener('DOMContentLoaded',()=>document.getElementById('openPremiumVoice')?.addEventListener('click',()=>window.DescentPremiumVoice?.openPanel()),{once:true});
+(function(){
+ function bindVoiceButtons(){
+   const standard=document.getElementById('openDungeonVoice');
+   const premium=document.getElementById('openPremiumVoice');
+   if(standard&&!standard.dataset.bound451){standard.dataset.bound451='1';standard.addEventListener('click',()=>window.DescentDungeonVoice?.openPanel());}
+   if(premium&&!premium.dataset.bound452){premium.dataset.bound452='1';premium.addEventListener('click',()=>window.DescentPremiumVoice?.openPanel());}
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bindVoiceButtons,{once:true});else bindVoiceButtons();
+})();
