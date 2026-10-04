@@ -498,7 +498,7 @@ window.addEventListener('descent-feed-update',()=>{const s=readState();if(s?.fee
 window.addEventListener('descent-message-update',()=>{const s=readState();if(s?.crawlers)state.crawlers=s.crawlers;render()});
 await initContentCloud();setInterval(header,30000);render();
 })().catch(e=>document.querySelector('#workspace').innerHTML=`<div class="notice">${esc(e.message)}</div>`);
-window.DESCENT_GM_BUILD='4.5.2.2';
+window.DESCENT_GM_BUILD='4.5.2.3';
 
 (function(){
  const PKEY='descentPremiumVoiceV4_5_2';
@@ -527,9 +527,6 @@ window.DESCENT_GM_BUILD='4.5.2.2';
    if(window.speechSynthesis)window.speechSynthesis.addEventListener?.('voiceschanged',fillLocal);
    document.getElementById('dvTestNative')?.addEventListener('click',()=>{const p=document.getElementById('dvProfileNative').value,v=document.getElementById('dvVoiceNative').value;if(v)window.DescentDungeonVoice?.setConfig?.({voiceName:v});const ok=window.DescentDungeonVoice?.speak?.('Hello, crawlers. The Dungeon is now listening.',p);document.getElementById('dvNativeStatus').textContent=ok?'Test sent to browser voice.':'Audio engine unavailable.'});
    document.getElementById('dvOpenAdvanced')?.addEventListener('click',()=>window.DescentDungeonVoice?.openPanel?.());
-   document.getElementById('pvSaveNative')?.addEventListener('click',savePremium);
-   document.getElementById('pvTestNative')?.addEventListener('click',async()=>{savePremium();const st=document.getElementById('pvNativeStatus');st.textContent='Generating premium audio…';try{await window.DescentPremiumVoice.speak('Hello, crawlers. Welcome to the Dungeon.','system');st.textContent='Premium audio playing.'}catch(e){st.textContent='Premium test failed: '+(e?.message||e)}});
-   document.getElementById('pvOpenAdvanced')?.addEventListener('click',()=>window.DescentPremiumVoice?.openPanel?.());
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});else bind();
 })();
