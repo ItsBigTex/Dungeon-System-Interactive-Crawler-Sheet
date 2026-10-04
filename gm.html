@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GM Console // The Descent</title>
-<link rel="stylesheet" href="./css/dungeon.css?v=4.5.2.4"><link rel="stylesheet" href="./css/gm-console.css?v=4.5.2.4">
+<link rel="stylesheet" href="./css/dungeon.css?v=4.5.2.5"><link rel="stylesheet" href="./css/gm-console.css?v=4.5.2.5">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head>
 <body><main class="shell gm-shell">
 <header class="top gm-top"><a class="btn" href="./index.html">← PLAYER PORTAL</a>
@@ -35,7 +35,7 @@
 <div class="voice-launchbar">
 <button type="button" class="btn" onclick="document.getElementById('dungeonVoiceDialog').showModal()">DUNGEON AI VOICE</button>
 <button type="button" class="btn" onclick="document.getElementById('premiumVoiceDialog').showModal()">PREMIUM AI VOICE</button>
-<span class="tag">UI 4.5.2.4</span>
+<span class="tag">UI 4.5.2.5</span>
 </div>
 <dialog id="dungeonVoiceDialog" class="voice-native-dialog">
 <form method="dialog"><button class="voice-x" aria-label="Close">×</button></form>
@@ -84,7 +84,7 @@ window.DescentVoiceUI = {
    if(!v.endpoint){this.status('TEST BLOCKED — enter the Supabase Proxy URL first.');return;}
    if(!v.voiceId){this.status('TEST BLOCKED — enter the ElevenLabs Voice ID first.');return;}
    if(!window.DescentPremiumVoice || !window.DescentPremiumVoice.speak){
-     var why=window.__descentAudioScriptError?'audio-engine.js failed to load':(window.__descentAudioScriptLoaded?'audio-engine.js loaded but did not initialize':'audio-engine.js has not loaded');
+     var why=window.__descentPremiumScriptError?'premium-voice.js failed to load':(window.__descentPremiumScriptLoaded?'premium-voice.js loaded but did not initialize':'premium-voice.js has not loaded');
      this.status('TEST BLOCKED — Premium engine OFFLINE: '+why+'.');
      return;
    }
@@ -94,7 +94,7 @@ window.DescentVoiceUI = {
  },
  openAdvancedPremium: function(){
    if(window.DescentPremiumVoice && window.DescentPremiumVoice.openPanel){ window.DescentPremiumVoice.openPanel(); return; }
-   var why=window.__descentAudioScriptError?'audio-engine.js failed to load':(window.__descentAudioScriptLoaded?'audio-engine.js loaded but did not initialize':'audio-engine.js has not loaded');
+   var why=window.__descentPremiumScriptError?'premium-voice.js failed to load':(window.__descentPremiumScriptLoaded?'premium-voice.js loaded but did not initialize':'premium-voice.js has not loaded');
    this.status('ADVANCED SETTINGS UNAVAILABLE — '+why+'.');
  },
  hydrate: function(){
@@ -103,19 +103,21 @@ window.DescentVoiceUI = {
    if(a)a.checked=!!v.enabled;if(b)b.value=v.endpoint||'';if(c)c.value=v.voiceId||'';if(d)d.value=v.modelId||'eleven_v3';
    var online=!!(window.DescentPremiumVoice&&window.DescentPremiumVoice.speak);
    if(online)this.status('Premium engine: ONLINE');
-   else if(window.__descentAudioScriptError)this.status('Premium engine: OFFLINE — audio-engine.js failed to load.');
-   else if(window.__descentAudioScriptLoaded)this.status('Premium engine: OFFLINE — audio-engine.js loaded but did not initialize.');
+   else if(window.__descentPremiumScriptError)this.status('Premium engine: OFFLINE — premium-voice.js failed to load.');
+   else if(window.__descentPremiumScriptLoaded)this.status('Premium engine: OFFLINE — premium-voice.js loaded but did not initialize.');
    else this.status('Premium controls ready — audio engine is still loading.');
  }
 };
 document.addEventListener('DOMContentLoaded',function(){window.DescentVoiceUI.hydrate();});
 </script>
+<script src="./js/premium-voice.js?v=4.5.2.5" onload="window.__descentPremiumScriptLoaded=true" onerror="window.__descentPremiumScriptError='premium-voice.js failed to load'"></script>
+
 <script>
 window.__descentAudioScriptLoaded=false;
 window.__descentAudioScriptError='';
 </script>
-<script src="./js/audio-engine.js?v=4.5.2.4"
+<script src="./js/audio-engine.js?v=4.5.2.5"
  onload="window.__descentAudioScriptLoaded=true"
  onerror="window.__descentAudioScriptError='audio-engine.js failed to load';console.error(window.__descentAudioScriptError)"></script>
-<script src="./js/crawler-data.js?v=4.5.2.4"></script><script src="./js/supabase-config.js?v=4.5.2.4"></script>
-<script src="./js/cloud-state.js?v=4.5.2.4"></script><script src="./js/app.js?v=4.5.2.4"></script><script src="./js/foundry-bridge.js?v=4.5.2.4"></script><script src="./js/gm.js?v=4.5.2.4"></script></body></html>
+<script src="./js/crawler-data.js?v=4.5.2.5"></script><script src="./js/supabase-config.js?v=4.5.2.5"></script>
+<script src="./js/cloud-state.js?v=4.5.2.5"></script><script src="./js/app.js?v=4.5.2.5"></script><script src="./js/foundry-bridge.js?v=4.5.2.5"></script><script src="./js/gm.js?v=4.5.2.5"></script></body></html>
