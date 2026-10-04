@@ -498,7 +498,7 @@ window.addEventListener('descent-feed-update',()=>{const s=readState();if(s?.fee
 window.addEventListener('descent-message-update',()=>{const s=readState();if(s?.crawlers)state.crawlers=s.crawlers;render()});
 await initContentCloud();setInterval(header,30000);render();
 })().catch(e=>document.querySelector('#workspace').innerHTML=`<div class="notice">${esc(e.message)}</div>`);
-window.DESCENT_GM_BUILD='4.5.2.5';
+window.DESCENT_GM_BUILD='4.5.2.6';
 
 (function(){
  const PKEY='descentPremiumVoiceV4_5_2';
