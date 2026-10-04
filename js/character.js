@@ -84,6 +84,7 @@ window.DESCENT_CRAWLER_BUILD='3.7.7';
    ack.textContent=n.acknowledgement_required===false?'DISMISS':'ACKNOWLEDGE';
    ack.disabled=false;
    pop.classList.remove('hidden');
+   window.DescentAudio?.narrateEvent(n);
    if(n.presentation==='banner'&&n.acknowledgement_required===false){
      clearTimeout(pop._descentAutoDismiss);
      pop._descentAutoDismiss=setTimeout(()=>{if(!pop.classList.contains('hidden')&&pop._descentNotification===n)dismissCurrentNotification(n,pop,ack)},8000);
@@ -144,14 +145,11 @@ window.DESCENT_CRAWLER_BUILD='3.7.7';
  window.addEventListener('descent-message-update',()=>{const fresh=readState(),fc=(fresh?.crawlers||[]).find(x=>String(x.id)===String(c.id));if(fc){c.messages=fc.messages||[];render();refreshSystemPopup()}});
  window.addEventListener('descent-message-refresh',()=>{const fresh=readState(),fc=(fresh?.crawlers||[]).find(x=>String(x.id)===String(c.id));if(fc){c.messages=fc.messages||[];render();refreshSystemPopup()}});
 
- function showDiceRoll(label,base,bonus,total,detail=''){
-   const overlay=document.querySelector('#diceOverlay'),die=document.querySelector('#dice3d'),lab=document.querySelector('#diceRollLabel'),
-   det=document.querySelector('#diceRollDetail'),tot=document.querySelector('#diceRollTotal'),flavor=document.querySelector('#diceRollFlavor'),close=document.querySelector('#diceRollClose');
-   if(!overlay)return;
-   lab.textContent=label||'SYSTEM DICE';die.textContent=base;det.textContent=detail||`d20 ${base}${bonus?` + ${bonus}`:''}`;
-   tot.textContent=total;flavor.textContent=base===20?'NATURAL 20. THE SYSTEM IS MILDLY IMPRESSED.':base===1?'NATURAL 1. ENTERTAINING.':'';
-   overlay.classList.remove('hidden');die.classList.remove('rolling');void die.offsetWidth;die.classList.add('rolling');
-   close.onclick=()=>overlay.classList.add('hidden');
+ function showDiceRoll(label,base,bonus,total,detail='',sides=20,rolls=null){
+   const values=Array.isArray(rolls)&&rolls.length?rolls:[base];
+   if(window.DescentDice){window.DescentDice.roll({rolls:values,sides,label,bonus,total,detail});return}
+   const overlay=document.querySelector('#diceOverlay'),die=document.querySelector('#dice3d'),lab=document.querySelector('#diceRollLabel'),det=document.querySelector('#diceRollDetail'),tot=document.querySelector('#diceRollTotal'),flavor=document.querySelector('#diceRollFlavor'),close=document.querySelector('#diceRollClose');
+   if(!overlay)return;lab.textContent=label||'SYSTEM DICE';die.textContent=base;det.textContent=detail||`d${sides} ${base}${bonus?` + ${bonus}`:''}`;tot.textContent=total;flavor.textContent=base===20&&sides===20?'NATURAL 20. THE SYSTEM IS MILDLY IMPRESSED.':base===1&&sides===20?'NATURAL 1. ENTERTAINING.':'';overlay.classList.remove('hidden');close.onclick=()=>overlay.classList.add('hidden');
  }
  function doDice(qty,sides){
    qty=Math.max(1,Math.min(100,Number(qty)||1));sides=Math.max(2,Number(sides)||20);
@@ -159,7 +157,7 @@ window.DESCENT_CRAWLER_BUILD='3.7.7';
    const totalEl=document.querySelector('#rolltotal'),detailEl=document.querySelector('#rolldetail');
    if(totalEl)totalEl.textContent=total;if(detailEl)detailEl.textContent=`${qty}d${sides}: [${rolls.join(', ')}]`;
    addFeed(state,`${c.name} rolled ${qty}d${sides}: [${rolls.join(', ')}] = ${total}.`);
-   showDiceRoll(`${qty}d${sides}`,rolls[0],0,total,`${qty}d${sides}: [${rolls.join(', ')}]`);
+   showDiceRoll(`${qty}d${sides}`,rolls[0],0,total,`${qty}d${sides}: [${rolls.join(', ')}]`,sides,rolls);
  }
  function skillBonus(s){const rank=Number(s[1]||0),stat=s[2];return rank+(c.stats[stat]?modFor(c.stats[stat]):0)}
  function persist(){saveState(state)}

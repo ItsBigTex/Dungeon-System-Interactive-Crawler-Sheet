@@ -1,4 +1,4 @@
-window.DESCENT_GM_BUILD='4.2';
+window.DESCENT_GM_BUILD='4.4.2';
 (async()=>{
 let state=await getState(),workspace='dashboard';
 let aiDraft=null;
@@ -113,6 +113,16 @@ function director(){
  <div class="panel"><span class="tag">ENCOUNTERS</span><h2>Available Pressure</h2>${p.encounters.map(x=>card('ENCOUNTER',x,'encounters')).join('')||'<p class="muted">No matching encounter records. Load the Homecoming content pack.</p>'}</div></section>
  <section class="gm-two"><div class="panel"><span class="tag">QUEST THREADS</span><h2>Existing Threads to Surface</h2>${p.quests.map(x=>card('QUEST',x,'rewards')).join('')||'<p class="muted">No matching quest records.</p>'}</div>
  <div class="panel"><span class="tag">ACHIEVEMENT WATCH</span><h2>Conditions Worth Watching</h2>${p.achievements.map(x=>card('ACHIEVEMENT',x,'rewards')).join('')||'<p class="muted">No matching achievement records.</p>'}</div></section>`:`<section class="panel"><span class="tag">READY</span><h2>Run a Director Pulse</h2><p class="muted">A pulse reads escalation, party health, active quests, active combat, and the existing Homecoming library, then surfaces options without changing player state.</p></section>`}`;
+}
+
+
+function foundryBridge(){
+ const c=window.DescentFoundry?.cfg?.()||{},a=active(),sceneName=a?.name||a?.title||'No active encounter';
+ return `<section class="gm-two"><div class="panel"><span class="tag">FOUNDRY BRIDGE // 4.4</span><h2>VTT Presentation Link</h2><p class="muted">Connect this GM Console to the local The Descent Foundry module. Phase 4.4 is intentionally GM-commanded: nothing deploys to Foundry without a button press.</p><div id="foundryStatus44" class="notice">STATUS // ${c.enabled?'CONFIGURED — TEST CONNECTION':'DISABLED'}</div><div class="controls"><button id="foundrySettings44">BRIDGE SETTINGS</button><button id="foundryTest44" class="primary">TEST CONNECTION</button></div></div>
+ <div class="panel"><span class="tag">ACTIVE ENCOUNTER</span><h2>${escA(sceneName)}</h2><p class="muted">Send the current encounter as presentation metadata. 4.4 does not invent token stats or overwrite crawler mechanics.</p><div class="controls"><button id="foundryEncounter44" ${a?'':'disabled'}>SEND ENCOUNTER</button><button id="foundryAnnouncement44">SYSTEM ANNOUNCEMENT</button></div></div></section>
+ <section class="gm-two"><div class="panel"><span class="tag">SCENE CONTROL</span><h2>Activate Existing Foundry Scene</h2><div class="field"><label>Scene Name</label><input id="foundrySceneName44" placeholder="Brownwood High — Main Hall"></div><button id="foundryScene44" class="primary">ACTIVATE SCENE</button><p class="muted small">For safety, this first bridge activates an existing Scene by name. It does not create maps, walls, lighting, or tokens yet.</p></div>
+ <div class="panel"><span class="tag">AUDIO CONTROL</span><h2>Play Existing Foundry Playlist</h2><div class="field"><label>Playlist Name</label><input id="foundryPlaylist44" placeholder="Brownwood — Fluorescent Dread"></div><button id="foundryAudio44">PLAY PLAYLIST</button><p class="muted small">Uses playlists already configured in your Foundry world.</p></div></section>
+ <section class="panel"><span class="tag">BRIDGE LOG</span><h2>Foundry Events</h2><div id="foundryLog44" class="notice small">No bridge events received this session.</div></section>`;
 }
 
 function id(prefix){return prefix+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)}
@@ -393,7 +403,7 @@ function tables(){
 }
 function render(){
  header();document.querySelectorAll('[data-workspace]').forEach(b=>b.classList.toggle('active',b.dataset.workspace===workspace));
- const w=document.querySelector('#workspace');w.innerHTML=workspace==='dashboard'?dashboard():workspace==='session'?session():workspace==='ai'?aiStudio():workspace==='actions'?actions():workspace==='rewards'?rewards():workspace==='items'?items():workspace==='npcs'?npcs():workspace==='adversaries'?adversaries():workspace==='encounters'?encounters():workspace==='director'?director():tables();
+ const w=document.querySelector('#workspace');w.innerHTML=workspace==='dashboard'?dashboard():workspace==='session'?session():workspace==='ai'?aiStudio():workspace==='actions'?actions():workspace==='rewards'?rewards():workspace==='items'?items():workspace==='npcs'?npcs():workspace==='adversaries'?adversaries():workspace==='encounters'?encounters():workspace==='director'?director():workspace==='foundry'?foundryBridge():tables();
  bind();
 }
 async function saveC(c,msg){await saveCrawlerNow(c);if(msg)feed(msg);state=readState()||state;render()}
@@ -446,6 +456,14 @@ function bind(){
  document.querySelectorAll('[data-deployenc]').forEach(b=>b.onclick=()=>{const x=library().find(z=>z.id===b.dataset.deployenc);if(!x)return;if(active()&&!confirm('Replace the currently active encounter?'))return;const crawlers=state.crawlers.map(c=>({participant_id:'crawler_'+c.id,kind:'crawler',crawler_id:c.id,name:c.name,health:{slots_max:10,slots_current:c.healthSlotsRemaining},conditions:[]}));const adversaries=[];(x.participants||[]).filter(p=>p.role==='adversaries').forEach(p=>{for(let i=0;i<Number(p.count||0);i++){const t=p.template||{};adversaries.push({participant_id:id('mob'),kind:'adversary',name:`${t.name||'Dungeon Mob'} ${i+1}`,health:{slots_max:Number(t.health_slots||10),slots_current:Number(t.health_slots||10)},dr:Number(t.dr||0),evade:t.evade||'11+F',surprise:t.surprise||'—',move:t.move||'—',level:t.level||x.floor,classification:t.classification||'Mob',stats:t.stats||{},attacks:t.attacks||[],special_rules:t.special_rules||[],conditions:[]})}});const runtime={instance_id:id('active'),definition_id:x.id,name:x.name,status:'active',round:1,phase:'mobs',floor:x.floor,party_size:state.crawlers.length,participants:[...crawlers,...adversaries],actions_remaining:Object.fromEntries(state.crawlers.map(c=>[c.id,2])),objective_state:Object.fromEntries((x.objectives||[]).map(o=>[o.id,'active'])),event_log:[],started_at:new Date().toISOString()};saveActive(runtime);feed(`Encounter deployed: ${x.name}. Round 1 begins with the Mob phase unless crawlers achieved surprise.`);render()});
  document.querySelectorAll('[data-deletecontent]').forEach(b=>b.onclick=()=>{const lib=library(),x=lib.find(z=>z.id===b.dataset.deletecontent);if(x&&confirm(`Delete ${x.name} from local Content Library?`)){saveLibrary(lib.filter(z=>z.id!==x.id));render()}});
 
+
+
+ document.querySelector('#foundrySettings44')?.addEventListener('click',()=>DescentFoundry.openSettings());
+ document.querySelector('#foundryTest44')?.addEventListener('click',async()=>{const el=document.querySelector('#foundryStatus44');try{const x=await DescentFoundry.status();el.innerHTML=`<b>ONLINE</b> // Foundry ${escA(x.foundry_version||'?')} // ${escA(x.world||'No world')} // ${escA(x.scene||'No active scene')}`}catch(e){el.textContent='OFFLINE // '+e.message}});
+ document.querySelector('#foundryScene44')?.addEventListener('click',async()=>{const name=document.querySelector('#foundrySceneName44').value.trim();if(!name)return alert('Enter an existing Foundry Scene name.');try{await DescentFoundry.command('activate_scene',{name});feed(`Foundry Bridge: requested Scene "${name}".`);alert('Scene command sent.')}catch(e){alert('Foundry Bridge: '+e.message)}});
+ document.querySelector('#foundryAudio44')?.addEventListener('click',async()=>{const name=document.querySelector('#foundryPlaylist44').value.trim();if(!name)return alert('Enter an existing Foundry Playlist name.');try{await DescentFoundry.command('play_playlist',{name});feed(`Foundry Bridge: requested Playlist "${name}".`);alert('Playlist command sent.')}catch(e){alert('Foundry Bridge: '+e.message)}});
+ document.querySelector('#foundryAnnouncement44')?.addEventListener('click',async()=>{const text=prompt('System announcement to display in Foundry:');if(!text)return;try{await DescentFoundry.command('system_announcement',{text});feed('Foundry Bridge: System announcement sent.')}catch(e){alert('Foundry Bridge: '+e.message)}});
+ document.querySelector('#foundryEncounter44')?.addEventListener('click',async()=>{const e=active();if(!e)return;try{await DescentFoundry.command('encounter',{id:e.id,name:e.name||e.title||'Encounter',round:e.round||1,phase:e.phase||'',participants:e.participants||e.adversaries||[]});feed(`Foundry Bridge: encounter "${e.name||e.title||e.id}" sent.`);alert('Encounter metadata sent to Foundry.')}catch(err){alert('Foundry Bridge: '+err.message)}});
 
  document.querySelector('#directorPulse')?.addEventListener('click',()=>{directorPulse();feed('Dungeon Director pulse generated for the current Homecoming state.');render()});
  document.querySelectorAll('[data-director-table]').forEach(b=>b.onclick=()=>{const pack=dynamicState().pack,t=pack?.tables?.find(x=>x.id===b.dataset.directorTable),el=document.querySelector('#directorRoll');if(!t||!el)return;const roll=Math.floor(Math.random()*t.results.length)+1,r=t.results[roll-1];el.innerHTML=`<div class="tag">${escA(t.name)} // d${t.die} → ${roll}</div><h2>${escA(r.title)}</h2><p>${escA(r.text)}</p><div class="notice small"><b>GM</b> — ${escA(r.gm)}</div>`});
