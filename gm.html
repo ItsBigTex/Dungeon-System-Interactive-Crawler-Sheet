@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GM Console // The Descent</title>
-<link rel="stylesheet" href="./css/dungeon.css?v=4.5.2.1"><link rel="stylesheet" href="./css/gm-console.css?v=4.5.2.1">
+<link rel="stylesheet" href="./css/dungeon.css?v=4.5.2.2"><link rel="stylesheet" href="./css/gm-console.css?v=4.5.2.2">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head>
 <body><main class="shell gm-shell">
 <header class="top gm-top"><a class="btn" href="./index.html">← PLAYER PORTAL</a>
@@ -32,5 +32,29 @@
 <section id="workspace"></section>
 <div class="footer">THE DESCENT // GM CONSOLE // RAW RULES AUTHORITY: CORE RULEBOOK + GM TOOLKIT</div>
 </main>
-<button type="button" id="openDungeonVoice" class="voice-config-fab">DUNGEON AI VOICE</button><button type="button" id="openPremiumVoice" class="voice-config-fab premium-voice-fab">PREMIUM AI VOICE</button><script src="./js/crawler-data.js?v=4.5.2.1"></script><script src="./js/supabase-config.js?v=4.5.2.1"></script>
-<script src="./js/cloud-state.js?v=4.5.2.1"></script><script src="./js/app.js?v=4.5.2.1"></script><script src="./js/foundry-bridge.js?v=4.5.2.1"></script><script src="./js/audio-engine.js?v=4.5.2.1"></script><script src="./js/gm.js?v=4.5.2.1"></script></body></html>
+<div class="voice-launchbar">
+<button type="button" class="btn" onclick="document.getElementById('dungeonVoiceDialog').showModal()">DUNGEON AI VOICE</button>
+<button type="button" class="btn" onclick="document.getElementById('premiumVoiceDialog').showModal()">PREMIUM AI VOICE</button>
+<span class="tag">UI 4.5.2.2</span>
+</div>
+<dialog id="dungeonVoiceDialog" class="voice-native-dialog">
+<form method="dialog"><button class="voice-x" aria-label="Close">×</button></form>
+<h2>DUNGEON AI VOICE</h2>
+<p class="muted">Local/browser voice fallback. This window opens without depending on the audio engine.</p>
+<label>Voice <select id="dvVoiceNative"><option value="">AUTO — BEST AVAILABLE</option></select></label>
+<label>Profile <select id="dvProfileNative"><option value="system">SYSTEM</option><option value="achievement">ACHIEVEMENT</option><option value="quest">QUEST</option><option value="loot">LOOT</option><option value="warning">WARNING</option><option value="boss">BOSS</option></select></label>
+<div class="controls"><button type="button" class="btn" id="dvTestNative">TEST VOICE</button><button type="button" class="btn" id="dvOpenAdvanced">ADVANCED SETTINGS</button></div>
+<div class="notice small" id="dvNativeStatus">Audio engine status: checking…</div>
+</dialog>
+<dialog id="premiumVoiceDialog" class="voice-native-dialog">
+<form method="dialog"><button class="voice-x" aria-label="Close">×</button></form>
+<h2>PREMIUM DUNGEON AI</h2>
+<p class="muted">ElevenLabs via your server-side proxy. The API key never belongs in this page.</p>
+<label class="checkline"><input id="pvEnabledNative" type="checkbox"> Premium voice enabled</label>
+<label>Proxy URL <input id="pvEndpointNative" type="url" placeholder="https://…/functions/v1/dungeon-voice"></label>
+<label>Voice ID <input id="pvVoiceNative" type="text" placeholder="ElevenLabs Voice ID"></label>
+<label>Model <select id="pvModelNative"><option value="eleven_v3">Eleven v3</option><option value="eleven_multilingual_v2">Multilingual v2</option><option value="eleven_flash_v2_5">Flash v2.5</option></select></label>
+<div class="controls"><button type="button" class="btn" id="pvSaveNative">SAVE</button><button type="button" class="btn" id="pvTestNative">TEST PREMIUM</button><button type="button" class="btn" id="pvOpenAdvanced">ADVANCED SETTINGS</button></div>
+<div class="notice small" id="pvNativeStatus">Premium engine status: checking…</div>
+</dialog><script src="./js/crawler-data.js?v=4.5.2.2"></script><script src="./js/supabase-config.js?v=4.5.2.2"></script>
+<script src="./js/cloud-state.js?v=4.5.2.2"></script><script src="./js/app.js?v=4.5.2.2"></script><script src="./js/foundry-bridge.js?v=4.5.2.2"></script><script src="./js/audio-engine.js?v=4.5.2.2"></script><script src="./js/gm.js?v=4.5.2.2"></script></body></html>

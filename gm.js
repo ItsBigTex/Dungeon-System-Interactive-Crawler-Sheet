@@ -498,14 +498,38 @@ window.addEventListener('descent-feed-update',()=>{const s=readState();if(s?.fee
 window.addEventListener('descent-message-update',()=>{const s=readState();if(s?.crawlers)state.crawlers=s.crawlers;render()});
 await initContentCloud();setInterval(header,30000);render();
 })().catch(e=>document.querySelector('#workspace').innerHTML=`<div class="notice">${esc(e.message)}</div>`);
-window.DESCENT_GM_BUILD='4.5.2.1';
+window.DESCENT_GM_BUILD='4.5.2.2';
 
 (function(){
- function bindVoiceButtons(){
-   const standard=document.getElementById('openDungeonVoice');
-   const premium=document.getElementById('openPremiumVoice');
-   if(standard&&!standard.dataset.bound451){standard.dataset.bound451='1';standard.addEventListener('click',()=>window.DescentDungeonVoice?.openPanel());}
-   if(premium&&!premium.dataset.bound452){premium.dataset.bound452='1';premium.addEventListener('click',()=>window.DescentPremiumVoice?.openPanel());}
+ const PKEY='descentPremiumVoiceV4_5_2';
+ function pget(){try{return JSON.parse(localStorage.getItem(PKEY)||'{}')}catch(_){return {}}}
+ function pset(x){const v={...pget(),...x};localStorage.setItem(PKEY,JSON.stringify(v));window.DescentPremiumVoice?.setConfig?.(v);return v}
+ function fillLocal(){
+   const st=document.getElementById('dvNativeStatus'),sel=document.getElementById('dvVoiceNative');
+   const engine=!!window.DescentDungeonVoice;
+   if(st)st.textContent=engine?'Audio engine: ONLINE':'Audio engine: OFFLINE — refresh once; dialog itself is working.';
+   if(sel&&window.speechSynthesis){const vs=speechSynthesis.getVoices();sel.innerHTML='<option value="">AUTO — BEST AVAILABLE</option>'+vs.map(v=>`<option value="${v.name.replace(/"/g,'&quot;')}">${v.name} — ${v.lang}</option>`).join('');}
  }
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bindVoiceButtons,{once:true});else bindVoiceButtons();
+ function fillPremium(){
+   const v=pget(),st=document.getElementById('pvNativeStatus');
+   document.getElementById('pvEnabledNative').checked=!!v.enabled;
+   document.getElementById('pvEndpointNative').value=v.endpoint||'';
+   document.getElementById('pvVoiceNative').value=v.voiceId||'';
+   document.getElementById('pvModelNative').value=v.modelId||'eleven_v3';
+   if(st)st.textContent=window.DescentPremiumVoice?'Premium engine: ONLINE':'Premium engine: OFFLINE — dialog itself is working.';
+ }
+ function savePremium(){
+   const v=pset({enabled:document.getElementById('pvEnabledNative').checked,endpoint:document.getElementById('pvEndpointNative').value.trim(),voiceId:document.getElementById('pvVoiceNative').value.trim(),modelId:document.getElementById('pvModelNative').value});
+   document.getElementById('pvNativeStatus').textContent='Saved locally. '+(v.endpoint&&v.voiceId?'Ready to test.':'Proxy URL and Voice ID are still required.');
+ }
+ function bind(){
+   fillLocal();fillPremium();
+   if(window.speechSynthesis)window.speechSynthesis.addEventListener?.('voiceschanged',fillLocal);
+   document.getElementById('dvTestNative')?.addEventListener('click',()=>{const p=document.getElementById('dvProfileNative').value,v=document.getElementById('dvVoiceNative').value;if(v)window.DescentDungeonVoice?.setConfig?.({voiceName:v});const ok=window.DescentDungeonVoice?.speak?.('Hello, crawlers. The Dungeon is now listening.',p);document.getElementById('dvNativeStatus').textContent=ok?'Test sent to browser voice.':'Audio engine unavailable.'});
+   document.getElementById('dvOpenAdvanced')?.addEventListener('click',()=>window.DescentDungeonVoice?.openPanel?.());
+   document.getElementById('pvSaveNative')?.addEventListener('click',savePremium);
+   document.getElementById('pvTestNative')?.addEventListener('click',async()=>{savePremium();const st=document.getElementById('pvNativeStatus');st.textContent='Generating premium audio…';try{await window.DescentPremiumVoice.speak('Hello, crawlers. Welcome to the Dungeon.','system');st.textContent='Premium audio playing.'}catch(e){st.textContent='Premium test failed: '+(e?.message||e)}});
+   document.getElementById('pvOpenAdvanced')?.addEventListener('click',()=>window.DescentPremiumVoice?.openPanel?.());
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});else bind();
 })();

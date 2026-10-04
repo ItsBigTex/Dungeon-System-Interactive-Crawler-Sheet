@@ -35,3 +35,13 @@ hr{border:0;border-top:1px solid #343941;margin:18px 0}
 /* 4.5.1 Dungeon AI Voice */
 .descent-voice-panel{position:fixed;right:18px;bottom:18px;z-index:10000;width:min(390px,calc(100% - 36px));display:none;padding:16px;border:1px solid #666;background:#121212;color:#eee;box-shadow:0 14px 40px #000a}
 .descent-voice-panel.open{display:block}.descent-voice-panel label{display:grid;grid-template-columns:90px 1fr;align-items:center;gap:8px;margin:9px 0}.descent-voice-panel select,.descent-voice-panel input{width:100%}.descent-voice-panel .dv-check{grid-template-columns:24px 1fr}.descent-voice-panel .dv-check input{width:auto}.dv-title{font-weight:800;letter-spacing:.08em}.dv-title span{opacity:.55;font-size:.8em}.dv-actions{display:flex;gap:8px;margin-top:12px}.dv-actions button{flex:1;min-height:42px}.dv-note{font-size:.78rem;opacity:.65;margin-top:10px}
+
+/* 4.5.2.2 native voice control hotfix */
+.voice-launchbar{position:fixed;right:18px;bottom:18px;z-index:12000;display:flex;gap:8px;align-items:center;padding:8px;background:#090909ee;border:1px solid #555}
+.voice-native-dialog{width:min(620px,calc(100vw - 30px));max-height:85vh;overflow:auto;background:#111;color:#eee;border:1px solid #777;padding:22px;box-shadow:0 20px 70px #000}
+.voice-native-dialog::backdrop{background:#000b}
+.voice-native-dialog label{display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:center;margin:12px 0}
+.voice-native-dialog input,.voice-native-dialog select{width:100%;min-height:38px}
+.voice-native-dialog .checkline{grid-template-columns:24px 1fr}.voice-native-dialog .checkline input{width:auto}
+.voice-x{float:right;font-size:26px;background:transparent;color:#fff;border:0;cursor:pointer}
+@media(max-width:700px){.voice-launchbar{left:10px;right:10px;bottom:10px;flex-wrap:wrap}.voice-native-dialog label{grid-template-columns:1fr}}
